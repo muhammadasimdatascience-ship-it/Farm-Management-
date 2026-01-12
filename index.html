@@ -4,19 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Farm Management System</title>
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <!-- jsPDF for PDF generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.28/dist/jspdf.plugin.autotable.min.js"></script>
     <!-- SheetJS for Excel -->
     <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root {
             --primary-color: #2E8B57;
@@ -95,47 +91,10 @@
         .export-btn:hover {
             background-color: #3154b8;
         }
-        .ledger-entry {
-            border-left: 4px solid;
-            padding-left: 10px;
-            margin-bottom: 10px;
-        }
-        .debit {
-            border-left-color: #dc3545;
-            background-color: #ffe6e6;
-        }
-        .credit {
-            border-left-color: #28a745;
-            background-color: #e6ffe6;
-        }
         .dashboard-icon {
             font-size: 3rem;
             color: var(--primary-color);
             margin-bottom: 15px;
-        }
-        .loading {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(255,255,255,0.8);
-            z-index: 9999;
-            justify-content: center;
-            align-items: center;
-        }
-        .loading-spinner {
-            width: 50px;
-            height: 50px;
-            border: 5px solid #f3f3f3;
-            border-top: 5px solid var(--primary-color);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
         }
         .date-range {
             background-color: #f8f9fa;
@@ -143,14 +102,26 @@
             border-radius: 5px;
             margin-bottom: 20px;
         }
+        .currency-cell {
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+        .income-cell {
+            color: #28a745;
+        }
+        .expense-cell {
+            color: #dc3545;
+        }
+        .backup-section {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            border: 2px dashed #dee2e6;
+        }
     </style>
 </head>
 <body>
-    <!-- Loading Spinner -->
-    <div class="loading" id="loading">
-        <div class="loading-spinner"></div>
-    </div>
-
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container-fluid">
@@ -160,8 +131,8 @@
             </a>
             <div class="d-flex align-items-center">
                 <span class="text-white me-3" id="currentDate"></span>
-                <button class="btn btn-outline-light" onclick="logout()">
-                    <i class="fas fa-sign-out-alt"></i>
+                <button class="btn btn-outline-light" onclick="exportAllData()">
+                    <i class="fas fa-download me-1"></i> Backup
                 </button>
             </div>
         </div>
@@ -254,18 +225,23 @@
                         <div class="col-md-6">
                             <div class="card">
                                 <div class="card-header">
-                                    <h5 class="mb-0">Quick Actions</h5>
+                                    <h5 class="mb-0">Data Management</h5>
                                 </div>
                                 <div class="card-body">
-                                    <button class="btn btn-primary mb-2 w-100" onclick="showTab('livestock')">
-                                        <i class="fas fa-plus me-2"></i>Add Livestock Entry
-                                    </button>
-                                    <button class="btn btn-primary mb-2 w-100" onclick="showTab('crops')">
-                                        <i class="fas fa-plus me-2"></i>Add Crop Entry
-                                    </button>
-                                    <button class="btn btn-primary mb-2 w-100" onclick="generateMonthlyReport()">
-                                        <i class="fas fa-file-pdf me-2"></i>Generate Monthly Report
-                                    </button>
+                                    <div class="backup-section">
+                                        <h6><i class="fas fa-database me-2"></i>Backup & Restore</h6>
+                                        <p class="text-muted small mb-2">All data is saved in your browser's local storage</p>
+                                        <button class="btn btn-primary mb-2 w-100" onclick="exportAllData()">
+                                            <i class="fas fa-download me-2"></i>Export All Data
+                                        </button>
+                                        <button class="btn btn-success mb-2 w-100" onclick="document.getElementById('importFile').click()">
+                                            <i class="fas fa-upload me-2"></i>Import Data
+                                        </button>
+                                        <input type="file" id="importFile" style="display:none" accept=".json" onchange="importData(event)">
+                                        <button class="btn btn-danger w-100" onclick="clearAllData()">
+                                            <i class="fas fa-trash me-2"></i>Clear All Data
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -312,11 +288,11 @@
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">Amount (₹)</label>
-                                            <input type="number" class="form-control" id="expenseAmount" step="0.01">
+                                            <input type="number" class="form-control" id="expenseAmount" step="1">
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">Income (₹)</label>
-                                            <input type="number" class="form-control" id="incomeAmount" step="0.01">
+                                            <input type="number" class="form-control" id="incomeAmount" step="1">
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">Date</label>
@@ -427,11 +403,11 @@
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">Expense Amount (₹)</label>
-                                            <input type="number" class="form-control" id="cropExpenseAmount" step="0.01" required>
+                                            <input type="number" class="form-control" id="cropExpenseAmount" step="1" required>
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">Income (₹)</label>
-                                            <input type="number" class="form-control" id="cropIncome" step="0.01">
+                                            <input type="number" class="form-control" id="cropIncome" step="1">
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">Area (Acres)</label>
@@ -543,11 +519,11 @@
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">Rate (₹ per hour)</label>
-                                            <input type="number" class="form-control" id="waterRate" value="100" step="0.01" required>
+                                            <input type="number" class="form-control" id="waterRate" value="100" step="1" required>
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">Payment Received (₹)</label>
-                                            <input type="number" class="form-control" id="paymentReceived" step="0.01">
+                                            <input type="number" class="form-control" id="paymentReceived" step="1">
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">Date</label>
@@ -555,7 +531,7 @@
                                         </div>
                                         <div class="alert alert-info">
                                             <strong>Calculated Bill:</strong>
-                                            <div id="calculatedBill">₹0.00</div>
+                                            <div id="calculatedBill">₹0</div>
                                         </div>
                                         <button type="submit" class="btn btn-primary w-100">
                                             <i class="fas fa-save me-2"></i>Save Entry
@@ -663,7 +639,7 @@
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">Amount (₹)</label>
-                                            <input type="number" class="form-control" id="expenseAmount" step="0.01" required>
+                                            <input type="number" class="form-control" id="expenseAmountMain" step="1" required>
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">Managed By</label>
@@ -717,16 +693,6 @@
                 <div id="income" class="tab-content" style="display: none;">
                     <h2 class="mb-4"><i class="fas fa-chart-line text-primary me-2"></i>Income Consolidated</h2>
                     
-                    <div class="row mb-4">
-                        <div class="col-md-12">
-                            <div class="card">
-                                <div class="card-body">
-                                    <canvas id="incomeChart" height="100"></canvas>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
                     <div class="row">
                         <div class="col-md-6">
                             <div class="card">
@@ -786,7 +752,7 @@
                                 </div>
                                 <div class="card-body">
                                     <div class="row">
-                                        <div class="col-md-4 mb-3">
+                                        <div class="col-md-3 mb-3">
                                             <div class="card h-100">
                                                 <div class="card-body text-center">
                                                     <i class="fas fa-file-pdf fa-3x text-danger mb-3"></i>
@@ -798,7 +764,7 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        <div class="col-md-4 mb-3">
+                                        <div class="col-md-3 mb-3">
                                             <div class="card h-100">
                                                 <div class="card-body text-center">
                                                     <i class="fas fa-chart-bar fa-3x text-primary mb-3"></i>
@@ -810,7 +776,7 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        <div class="col-md-4 mb-3">
+                                        <div class="col-md-3 mb-3">
                                             <div class="card h-100">
                                                 <div class="card-body text-center">
                                                     <i class="fas fa-user-tie fa-3x text-success mb-3"></i>
@@ -818,6 +784,18 @@
                                                     <p class="text-muted">By individual</p>
                                                     <button class="btn btn-success" onclick="generateManagedExpensesReport()">
                                                         Generate Report
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3 mb-3">
+                                            <div class="card h-100">
+                                                <div class="card-body text-center">
+                                                    <i class="fas fa-tint fa-3x text-info mb-3"></i>
+                                                    <h5>Water Bills</h5>
+                                                    <p class="text-muted">Water supply report</p>
+                                                    <button class="btn btn-info" onclick="generateWaterReportPDF()">
+                                                        Generate PDF
                                                     </button>
                                                 </div>
                                             </div>
@@ -946,32 +924,217 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <script>
-        // Firebase Configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyDgHtY0LmJz8L8Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q",
-            authDomain: "farm-management-system.firebaseapp.com",
-            projectId: "farm-management-system",
-            storageBucket: "farm-management-system.appspot.com",
-            messagingSenderId: "123456789012",
-            appId: "1:123456789012:web:abcdef1234567890"
-        };
+        // Currency formatting function - removes .00 for whole numbers
+        function formatCurrency(amount) {
+            if (amount === undefined || amount === null || amount === '') return '₹0';
+            
+            const num = parseFloat(amount);
+            if (isNaN(num)) return '₹0';
+            
+            // Check if it's a whole number
+            if (Number.isInteger(num)) {
+                return '₹' + num.toLocaleString('en-IN');
+            } else {
+                return '₹' + num.toLocaleString('en-IN');
+            }
+        }
 
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const auth = firebase.auth();
+        // Format number for display (without ₹ symbol)
+        function formatNumber(num) {
+            if (num === undefined || num === null || num === '') return '0';
+            
+            const number = parseFloat(num);
+            if (isNaN(number)) return '0';
+            
+            // Check if it's a whole number
+            if (Number.isInteger(number)) {
+                return number.toLocaleString('en-IN');
+            } else {
+                return number.toLocaleString('en-IN');
+            }
+        }
 
-        // Global Variables
-        let currentUser = null;
-        let livestockData = [];
-        let cropData = [];
-        let expenseData = [];
-        let waterData = [];
-        let incomeChart = null;
+        // Data Storage Class
+        class DataStorage {
+            constructor() {
+                this.storageKey = 'farm_management_data';
+                this.loadData();
+            }
+
+            loadData() {
+                const savedData = localStorage.getItem(this.storageKey);
+                if (savedData) {
+                    const data = JSON.parse(savedData);
+                    this.livestock = data.livestock || [];
+                    this.crops = data.crops || [];
+                    this.water = data.water || [];
+                    this.expenses = data.expenses || [];
+                } else {
+                    this.livestock = [];
+                    this.crops = [];
+                    this.water = [];
+                    this.expenses = [];
+                    this.saveAllData();
+                }
+            }
+
+            saveAllData() {
+                const data = {
+                    livestock: this.livestock,
+                    crops: this.crops,
+                    water: this.water,
+                    expenses: this.expenses,
+                    lastUpdated: new Date().toISOString()
+                };
+                localStorage.setItem(this.storageKey, JSON.stringify(data));
+            }
+
+            // Livestock methods
+            addLivestock(entry) {
+                entry.id = Date.now().toString();
+                this.livestock.push(entry);
+                this.saveAllData();
+                return entry.id;
+            }
+
+            updateLivestock(id, updates) {
+                const index = this.livestock.findIndex(item => item.id === id);
+                if (index !== -1) {
+                    this.livestock[index] = { ...this.livestock[index], ...updates };
+                    this.saveAllData();
+                    return true;
+                }
+                return false;
+            }
+
+            deleteLivestock(id) {
+                const index = this.livestock.findIndex(item => item.id === id);
+                if (index !== -1) {
+                    this.livestock.splice(index, 1);
+                    this.saveAllData();
+                    return true;
+                }
+                return false;
+            }
+
+            // Crop methods
+            addCrop(entry) {
+                entry.id = Date.now().toString();
+                this.crops.push(entry);
+                this.saveAllData();
+                return entry.id;
+            }
+
+            updateCrop(id, updates) {
+                const index = this.crops.findIndex(item => item.id === id);
+                if (index !== -1) {
+                    this.crops[index] = { ...this.crops[index], ...updates };
+                    this.saveAllData();
+                    return true;
+                }
+                return false;
+            }
+
+            deleteCrop(id) {
+                const index = this.crops.findIndex(item => item.id === id);
+                if (index !== -1) {
+                    this.crops.splice(index, 1);
+                    this.saveAllData();
+                    return true;
+                }
+                return false;
+            }
+
+            // Water methods
+            addWater(entry) {
+                entry.id = Date.now().toString();
+                this.water.push(entry);
+                this.saveAllData();
+                return entry.id;
+            }
+
+            updateWater(id, updates) {
+                const index = this.water.findIndex(item => item.id === id);
+                if (index !== -1) {
+                    this.water[index] = { ...this.water[index], ...updates };
+                    this.saveAllData();
+                    return true;
+                }
+                return false;
+            }
+
+            deleteWater(id) {
+                const index = this.water.findIndex(item => item.id === id);
+                if (index !== -1) {
+                    this.water.splice(index, 1);
+                    this.saveAllData();
+                    return true;
+                }
+                return false;
+            }
+
+            // Expense methods
+            addExpense(entry) {
+                entry.id = Date.now().toString();
+                this.expenses.push(entry);
+                this.saveAllData();
+                return entry.id;
+            }
+
+            updateExpense(id, updates) {
+                const index = this.expenses.findIndex(item => item.id === id);
+                if (index !== -1) {
+                    this.expenses[index] = { ...this.expenses[index], ...updates };
+                    this.saveAllData();
+                    return true;
+                }
+                return false;
+            }
+
+            deleteExpense(id) {
+                const index = this.expenses.findIndex(item => item.id === id);
+                if (index !== -1) {
+                    this.expenses.splice(index, 1);
+                    this.saveAllData();
+                    return true;
+                }
+                return false;
+            }
+
+            // Export all data
+            exportData() {
+                return {
+                    livestock: this.livestock,
+                    crops: this.crops,
+                    water: this.water,
+                    expenses: this.expenses,
+                    exportedAt: new Date().toISOString()
+                };
+            }
+
+            // Import data
+            importData(data) {
+                this.livestock = data.livestock || [];
+                this.crops = data.crops || [];
+                this.water = data.water || [];
+                this.expenses = data.expenses || [];
+                this.saveAllData();
+            }
+
+            // Clear all data
+            clearData() {
+                this.livestock = [];
+                this.crops = [];
+                this.water = [];
+                this.expenses = [];
+                this.saveAllData();
+            }
+        }
+
+        // Initialize data storage
+        const dataStorage = new DataStorage();
 
         // Initialize Application
         document.addEventListener('DOMContentLoaded', function() {
@@ -981,35 +1144,8 @@
         });
 
         function initializeApp() {
-            showLoading();
-            // Check authentication
-            auth.onAuthStateChanged((user) => {
-                if (user) {
-                    currentUser = user;
-                    loadAllData();
-                    hideLoading();
-                } else {
-                    // Auto login for demo
-                    auth.signInAnonymously()
-                        .then(() => {
-                            currentUser = auth.currentUser;
-                            loadAllData();
-                            hideLoading();
-                        })
-                        .catch((error) => {
-                            console.error("Login error:", error);
-                            hideLoading();
-                        });
-                }
-            });
-        }
-
-        function showLoading() {
-            document.getElementById('loading').style.display = 'flex';
-        }
-
-        function hideLoading() {
-            document.getElementById('loading').style.display = 'none';
+            loadAllData();
+            initializeDates();
         }
 
         function updateCurrentDate() {
@@ -1076,83 +1212,53 @@
                 category: document.getElementById('livestockCategory').value,
                 animalName: document.getElementById('animalName').value,
                 expenseType: document.getElementById('expenseType').value,
-                expenseAmount: parseFloat(document.getElementById('expenseAmount').value) || 0,
-                incomeAmount: parseFloat(document.getElementById('incomeAmount').value) || 0,
+                expenseAmount: parseInt(document.getElementById('expenseAmount').value) || 0,
+                incomeAmount: parseInt(document.getElementById('incomeAmount').value) || 0,
                 date: document.getElementById('entryDate').value,
                 description: document.getElementById('description').value,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                userId: currentUser.uid
+                timestamp: new Date().toISOString()
             };
 
-            showLoading();
-            db.collection('livestock').add(entry)
-                .then(() => {
-                    alert('Entry saved successfully!');
-                    document.getElementById('livestockForm').reset();
-                    loadLivestockData();
-                    hideLoading();
-                })
-                .catch(error => {
-                    console.error('Error saving entry:', error);
-                    alert('Error saving entry!');
-                    hideLoading();
-                });
+            dataStorage.addLivestock(entry);
+            alert('Entry saved successfully!');
+            document.getElementById('livestockForm').reset();
+            loadLivestockData();
+            updateDashboardStats();
         }
 
         function loadLivestockData() {
-            showLoading();
-            db.collection('livestock')
-                .where('userId', '==', currentUser.uid)
-                .orderBy('timestamp', 'desc')
-                .get()
-                .then(snapshot => {
-                    livestockData = [];
-                    const tableBody = document.getElementById('livestockTable');
-                    tableBody.innerHTML = '';
-                    
-                    let totalIncome = 0;
-                    let totalExpense = 0;
-                    let totalAnimals = 0;
-                    
-                    snapshot.forEach(doc => {
-                        const data = doc.data();
-                        data.id = doc.id;
-                        livestockData.push(data);
-                        
-                        const row = `
-                            <tr>
-                                <td>${new Date(data.date).toLocaleDateString()}</td>
-                                <td>${data.category}</td>
-                                <td>${data.animalName}</td>
-                                <td>${data.expenseType}</td>
-                                <td class="text-danger">₹${data.expenseAmount.toFixed(2)}</td>
-                                <td class="text-success">₹${data.incomeAmount.toFixed(2)}</td>
-                                <td>
-                                    <button class="btn btn-sm btn-warning me-1" onclick="editRecord('livestock', '${doc.id}')">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-danger" onclick="deleteRecord('livestock', '${doc.id}')">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                        `;
-                        tableBody.innerHTML += row;
-                        
-                        totalIncome += data.incomeAmount;
-                        totalExpense += data.expenseAmount;
-                        totalAnimals++;
-                    });
-                    
-                    // Update dashboard stats
-                    document.getElementById('totalLivestock').textContent = totalAnimals;
-                    updateDashboardStats();
-                    hideLoading();
-                })
-                .catch(error => {
-                    console.error('Error loading livestock data:', error);
-                    hideLoading();
-                });
+            const tableBody = document.getElementById('livestockTable');
+            tableBody.innerHTML = '';
+            
+            let totalIncome = 0;
+            let totalExpense = 0;
+            let totalAnimals = 0;
+            
+            dataStorage.livestock.forEach(item => {
+                const row = `
+                    <tr>
+                        <td>${new Date(item.date).toLocaleDateString()}</td>
+                        <td>${item.category}</td>
+                        <td>${item.animalName}</td>
+                        <td>${item.expenseType}</td>
+                        <td class="currency-cell expense-cell">${formatCurrency(item.expenseAmount)}</td>
+                        <td class="currency-cell income-cell">${formatCurrency(item.incomeAmount)}</td>
+                        <td>
+                            <button class="btn btn-sm btn-warning me-1" onclick="editRecord('livestock', '${item.id}')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteRecord('livestock', '${item.id}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+                tableBody.innerHTML += row;
+                
+                totalIncome += item.incomeAmount;
+                totalExpense += item.expenseAmount;
+                totalAnimals++;
+            });
         }
 
         // ========== CROP MANAGEMENT ==========
@@ -1165,73 +1271,47 @@
             const entry = {
                 cropName: document.getElementById('cropName').value,
                 expenseType: document.getElementById('cropExpenseType').value,
-                expenseAmount: parseFloat(document.getElementById('cropExpenseAmount').value) || 0,
-                incomeAmount: parseFloat(document.getElementById('cropIncome').value) || 0,
+                expenseAmount: parseInt(document.getElementById('cropExpenseAmount').value) || 0,
+                incomeAmount: parseInt(document.getElementById('cropIncome').value) || 0,
                 area: parseFloat(document.getElementById('cropArea').value) || 0,
                 date: document.getElementById('cropDate').value,
                 managedBy: document.getElementById('cropManagedBy').value,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                userId: currentUser.uid
+                timestamp: new Date().toISOString()
             };
 
-            showLoading();
-            db.collection('crops').add(entry)
-                .then(() => {
-                    alert('Crop entry saved successfully!');
-                    document.getElementById('cropForm').reset();
-                    loadCropData();
-                    hideLoading();
-                })
-                .catch(error => {
-                    console.error('Error saving crop entry:', error);
-                    alert('Error saving entry!');
-                    hideLoading();
-                });
+            dataStorage.addCrop(entry);
+            alert('Crop entry saved successfully!');
+            document.getElementById('cropForm').reset();
+            loadCropData();
+            updateDashboardStats();
         }
 
         function loadCropData() {
-            showLoading();
-            db.collection('crops')
-                .where('userId', '==', currentUser.uid)
-                .orderBy('timestamp', 'desc')
-                .get()
-                .then(snapshot => {
-                    cropData = [];
-                    const tableBody = document.getElementById('cropTable');
-                    tableBody.innerHTML = '';
-                    
-                    snapshot.forEach(doc => {
-                        const data = doc.data();
-                        data.id = doc.id;
-                        cropData.push(data);
-                        
-                        const row = `
-                            <tr>
-                                <td>${new Date(data.date).toLocaleDateString()}</td>
-                                <td>${data.cropName}</td>
-                                <td>${data.expenseType}</td>
-                                <td class="text-danger">₹${data.expenseAmount.toFixed(2)}</td>
-                                <td class="text-success">₹${data.incomeAmount.toFixed(2)}</td>
-                                <td>${data.area} acres</td>
-                                <td>${data.managedBy}</td>
-                                <td>
-                                    <button class="btn btn-sm btn-warning me-1" onclick="editRecord('crops', '${doc.id}')">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-danger" onclick="deleteRecord('crops', '${doc.id}')">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                        `;
-                        tableBody.innerHTML += row;
-                    });
-                    hideLoading();
-                })
-                .catch(error => {
-                    console.error('Error loading crop data:', error);
-                    hideLoading();
-                });
+            const tableBody = document.getElementById('cropTable');
+            tableBody.innerHTML = '';
+            
+            dataStorage.crops.forEach(item => {
+                const row = `
+                    <tr>
+                        <td>${new Date(item.date).toLocaleDateString()}</td>
+                        <td>${item.cropName}</td>
+                        <td>${item.expenseType}</td>
+                        <td class="currency-cell expense-cell">${formatCurrency(item.expenseAmount)}</td>
+                        <td class="currency-cell income-cell">${formatCurrency(item.incomeAmount)}</td>
+                        <td>${item.area} acres</td>
+                        <td>${item.managedBy}</td>
+                        <td>
+                            <button class="btn btn-sm btn-warning me-1" onclick="editRecord('crops', '${item.id}')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteRecord('crops', '${item.id}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+                tableBody.innerHTML += row;
+            });
         }
 
         // ========== WATER SUPPLY MANAGEMENT ==========
@@ -1248,7 +1328,7 @@
         function calculateBill() {
             const startTime = document.getElementById('startTime').value;
             const endTime = document.getElementById('endTime').value;
-            const rate = parseFloat(document.getElementById('waterRate').value) || 0;
+            const rate = parseInt(document.getElementById('waterRate').value) || 0;
             
             if (startTime && endTime) {
                 const start = new Date(startTime);
@@ -1256,8 +1336,8 @@
                 const hours = (end - start) / (1000 * 60 * 60);
                 
                 if (hours > 0) {
-                    const bill = hours * rate;
-                    document.getElementById('calculatedBill').textContent = `₹${bill.toFixed(2)}`;
+                    const bill = Math.round(hours * rate);
+                    document.getElementById('calculatedBill').textContent = formatCurrency(bill);
                 }
             }
         }
@@ -1268,130 +1348,96 @@
             const start = new Date(startTime);
             const end = new Date(endTime);
             const hours = (end - start) / (1000 * 60 * 60);
-            const bill = hours * parseFloat(document.getElementById('waterRate').value);
+            const bill = Math.round(hours * parseInt(document.getElementById('waterRate').value));
 
             const entry = {
                 farmerName: document.getElementById('farmerName').value,
                 startTime: startTime,
                 endTime: endTime,
-                rate: parseFloat(document.getElementById('waterRate').value),
+                rate: parseInt(document.getElementById('waterRate').value),
                 totalBill: bill,
-                paymentReceived: parseFloat(document.getElementById('paymentReceived').value) || 0,
-                balance: bill - (parseFloat(document.getElementById('paymentReceived').value) || 0),
+                paymentReceived: parseInt(document.getElementById('paymentReceived').value) || 0,
+                balance: bill - (parseInt(document.getElementById('paymentReceived').value) || 0),
                 date: document.getElementById('waterDate').value,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                userId: currentUser.uid
+                timestamp: new Date().toISOString()
             };
 
-            showLoading();
-            db.collection('waterSupply').add(entry)
-                .then(() => {
-                    alert('Water billing entry saved successfully!');
-                    document.getElementById('waterForm').reset();
-                    document.getElementById('calculatedBill').textContent = '₹0.00';
-                    loadWaterData();
-                    hideLoading();
-                })
-                .catch(error => {
-                    console.error('Error saving water entry:', error);
-                    alert('Error saving entry!');
-                    hideLoading();
-                });
+            dataStorage.addWater(entry);
+            alert('Water billing entry saved successfully!');
+            document.getElementById('waterForm').reset();
+            document.getElementById('calculatedBill').textContent = formatCurrency(0);
+            loadWaterData();
         }
 
         function loadWaterData() {
-            showLoading();
-            db.collection('waterSupply')
-                .where('userId', '==', currentUser.uid)
-                .orderBy('timestamp', 'desc')
-                .get()
-                .then(snapshot => {
-                    waterData = [];
-                    const farmerSummary = {};
-                    const tableBody = document.getElementById('waterTable');
-                    tableBody.innerHTML = '';
-                    
-                    snapshot.forEach(doc => {
-                        const data = doc.data();
-                        data.id = doc.id;
-                        waterData.push(data);
-                        
-                        // Aggregate farmer data
-                        if (!farmerSummary[data.farmerName]) {
-                            farmerSummary[data.farmerName] = {
-                                totalBill: 0,
-                                totalPaid: 0,
-                                lastPayment: ''
-                            };
-                        }
-                        farmerSummary[data.farmerName].totalBill += data.totalBill;
-                        farmerSummary[data.farmerName].totalPaid += data.paymentReceived;
-                        farmerSummary[data.farmerName].lastPayment = data.date;
-                    });
-                    
-                    // Display summary
-                    for (const farmer in farmerSummary) {
-                        const balance = farmerSummary[farmer].totalBill - farmerSummary[farmer].totalPaid;
-                        const row = `
-                            <tr>
-                                <td><strong>${farmer}</strong></td>
-                                <td>₹${farmerSummary[farmer].totalBill.toFixed(2)}</td>
-                                <td class="text-success">₹${farmerSummary[farmer].totalPaid.toFixed(2)}</td>
-                                <td class="${balance > 0 ? 'text-danger' : 'text-success'}">
-                                    ₹${balance.toFixed(2)}
-                                </td>
-                                <td>${farmerSummary[farmer].lastPayment}</td>
-                                <td>
-                                    <button class="btn btn-sm btn-info" onclick="viewFarmerLedger('${farmer}')">
-                                        <i class="fas fa-eye"></i> Ledger
-                                    </button>
-                                </td>
-                            </tr>
-                        `;
-                        tableBody.innerHTML += row;
-                    }
-                    hideLoading();
-                })
-                .catch(error => {
-                    console.error('Error loading water data:', error);
-                    hideLoading();
-                });
+            const farmerSummary = {};
+            const tableBody = document.getElementById('waterTable');
+            tableBody.innerHTML = '';
+            
+            dataStorage.water.forEach(item => {
+                // Aggregate farmer data
+                if (!farmerSummary[item.farmerName]) {
+                    farmerSummary[item.farmerName] = {
+                        totalBill: 0,
+                        totalPaid: 0,
+                        lastPayment: ''
+                    };
+                }
+                farmerSummary[item.farmerName].totalBill += item.totalBill;
+                farmerSummary[item.farmerName].totalPaid += item.paymentReceived;
+                farmerSummary[item.farmerName].lastPayment = item.date;
+            });
+            
+            // Display summary
+            for (const farmer in farmerSummary) {
+                const balance = farmerSummary[farmer].totalBill - farmerSummary[farmer].totalPaid;
+                const row = `
+                    <tr>
+                        <td><strong>${farmer}</strong></td>
+                        <td class="currency-cell">${formatCurrency(farmerSummary[farmer].totalBill)}</td>
+                        <td class="currency-cell income-cell">${formatCurrency(farmerSummary[farmer].totalPaid)}</td>
+                        <td class="currency-cell ${balance > 0 ? 'expense-cell' : 'income-cell'}">
+                            ${formatCurrency(balance)}
+                        </td>
+                        <td>${farmerSummary[farmer].lastPayment}</td>
+                        <td>
+                            <button class="btn btn-sm btn-info" onclick="viewFarmerLedger('${farmer}')">
+                                <i class="fas fa-eye"></i> Ledger
+                            </button>
+                        </td>
+                    </tr>
+                `;
+                tableBody.innerHTML += row;
+            }
         }
 
         function viewFarmerLedger(farmerName) {
-            showLoading();
-            db.collection('waterSupply')
-                .where('userId', '==', currentUser.uid)
-                .where('farmerName', '==', farmerName)
-                .orderBy('date', 'asc')
-                .get()
-                .then(snapshot => {
-                    const ledgerDetails = document.getElementById('ledgerDetails');
-                    ledgerDetails.innerHTML = '';
-                    let runningBalance = 0;
+            const ledgerDetails = document.getElementById('ledgerDetails');
+            ledgerDetails.innerHTML = '';
+            let runningBalance = 0;
+            
+            dataStorage.water
+                .filter(item => item.farmerName === farmerName)
+                .forEach(item => {
+                    runningBalance += item.balance;
                     
-                    snapshot.forEach(doc => {
-                        const data = doc.data();
-                        runningBalance += data.balance;
-                        
-                        const row = `
-                            <tr>
-                                <td>${new Date(data.date).toLocaleDateString()}</td>
-                                <td>₹${data.totalBill.toFixed(2)}</td>
-                                <td class="text-success">₹${data.paymentReceived.toFixed(2)}</td>
-                                <td class="${data.balance > 0 ? 'text-danger' : 'text-success'}">
-                                    ₹${data.balance.toFixed(2)}
-                                </td>
-                                <td>${data.paymentReceived > 0 ? 'Payment' : 'Bill'}</td>
-                            </tr>
-                        `;
-                        ledgerDetails.innerHTML += row;
-                    });
-                    
-                    document.getElementById('ledgerFarmerName').textContent = `Ledger for ${farmerName} - Total Balance: ₹${runningBalance.toFixed(2)}`;
-                    new bootstrap.Modal(document.getElementById('ledgerModal')).show();
-                    hideLoading();
+                    const row = `
+                        <tr>
+                            <td>${new Date(item.date).toLocaleDateString()}</td>
+                            <td class="currency-cell">${formatCurrency(item.totalBill)}</td>
+                            <td class="currency-cell income-cell">${formatCurrency(item.paymentReceived)}</td>
+                            <td class="currency-cell ${item.balance > 0 ? 'expense-cell' : 'income-cell'}">
+                                ${formatCurrency(item.balance)}
+                            </td>
+                            <td>${item.paymentReceived > 0 ? 'Payment' : 'Bill'}</td>
+                        </tr>
+                    `;
+                    ledgerDetails.innerHTML += row;
                 });
+            
+            document.getElementById('ledgerFarmerName').textContent = 
+                `Ledger for ${farmerName} - Total Balance: ${formatCurrency(runningBalance)}`;
+            new bootstrap.Modal(document.getElementById('ledgerModal')).show();
         }
 
         // ========== EXPENSE MANAGEMENT ==========
@@ -1403,353 +1449,261 @@
         function saveExpense() {
             const expense = {
                 category: document.getElementById('expenseCategory').value,
-                amount: parseFloat(document.getElementById('expenseAmount').value),
+                amount: parseInt(document.getElementById('expenseAmountMain').value),
                 managedBy: document.getElementById('expenseManagedBy').value,
                 description: document.getElementById('expenseDescription').value,
                 date: document.getElementById('expenseDate').value,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                userId: currentUser.uid
+                timestamp: new Date().toISOString()
             };
 
-            showLoading();
-            db.collection('expenses').add(expense)
-                .then(() => {
-                    alert('Expense saved successfully!');
-                    document.getElementById('expenseForm').reset();
-                    loadExpenseData();
-                    hideLoading();
-                })
-                .catch(error => {
-                    console.error('Error saving expense:', error);
-                    alert('Error saving expense!');
-                    hideLoading();
-                });
+            dataStorage.addExpense(expense);
+            alert('Expense saved successfully!');
+            document.getElementById('expenseForm').reset();
+            loadExpenseData();
+            updateDashboardStats();
         }
 
         function loadExpenseData() {
-            showLoading();
-            db.collection('expenses')
-                .where('userId', '==', currentUser.uid)
-                .orderBy('timestamp', 'desc')
-                .get()
-                .then(snapshot => {
-                    expenseData = [];
-                    const tableBody = document.getElementById('expenseTable');
-                    tableBody.innerHTML = '';
-                    
-                    let totalExpenses = 0;
-                    let monthlyExpenses = 0;
-                    const currentMonth = new Date().getMonth();
-                    const currentYear = new Date().getFullYear();
-                    
-                    snapshot.forEach(doc => {
-                        const data = doc.data();
-                        data.id = doc.id;
-                        expenseData.push(data);
-                        
-                        const expenseDate = new Date(data.date);
-                        if (expenseDate.getMonth() === currentMonth && expenseDate.getFullYear() === currentYear) {
-                            monthlyExpenses += data.amount;
-                        }
-                        totalExpenses += data.amount;
-                        
-                        const row = `
-                            <tr>
-                                <td>${new Date(data.date).toLocaleDateString()}</td>
-                                <td>${data.category}</td>
-                                <td class="text-danger">₹${data.amount.toFixed(2)}</td>
-                                <td>${data.managedBy}</td>
-                                <td>${data.description}</td>
-                                <td>
-                                    <button class="btn btn-sm btn-warning me-1" onclick="editRecord('expenses', '${doc.id}')">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-danger" onclick="deleteRecord('expenses', '${doc.id}')">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                        `;
-                        tableBody.innerHTML += row;
-                    });
-                    
-                    // Update expense statistics
-                    document.getElementById('totalExpensesAmount').textContent = `₹${totalExpenses.toFixed(2)}`;
-                    document.getElementById('monthlyExpenses').textContent = `₹${monthlyExpenses.toFixed(2)}`;
-                    document.getElementById('totalExpenses').textContent = `₹${totalExpenses.toFixed(2)}`;
-                    updateDashboardStats();
-                    hideLoading();
-                })
-                .catch(error => {
-                    console.error('Error loading expense data:', error);
-                    hideLoading();
-                });
+            const tableBody = document.getElementById('expenseTable');
+            tableBody.innerHTML = '';
+            
+            let totalExpenses = 0;
+            let monthlyExpenses = 0;
+            const currentMonth = new Date().getMonth();
+            const currentYear = new Date().getFullYear();
+            
+            dataStorage.expenses.forEach(item => {
+                totalExpenses += item.amount;
+                
+                const expenseDate = new Date(item.date);
+                if (expenseDate.getMonth() === currentMonth && expenseDate.getFullYear() === currentYear) {
+                    monthlyExpenses += item.amount;
+                }
+                
+                const row = `
+                    <tr>
+                        <td>${new Date(item.date).toLocaleDateString()}</td>
+                        <td>${item.category}</td>
+                        <td class="currency-cell expense-cell">${formatCurrency(item.amount)}</td>
+                        <td>${item.managedBy}</td>
+                        <td>${item.description}</td>
+                        <td>
+                            <button class="btn btn-sm btn-warning me-1" onclick="editRecord('expenses', '${item.id}')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteRecord('expenses', '${item.id}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+                tableBody.innerHTML += row;
+            });
+            
+            // Update expense statistics
+            document.getElementById('totalExpensesAmount').textContent = formatCurrency(totalExpenses);
+            document.getElementById('monthlyExpenses').textContent = formatCurrency(monthlyExpenses);
+            document.getElementById('totalExpenses').textContent = formatCurrency(totalExpenses);
         }
 
         // ========== INCOME MANAGEMENT ==========
         function loadIncomeData() {
-            showLoading();
             // Aggregate income from livestock and crops
-            Promise.all([
-                db.collection('livestock').where('userId', '==', currentUser.uid).get(),
-                db.collection('crops').where('userId', '==', currentUser.uid).get()
-            ]).then(([livestockSnap, cropSnap]) => {
-                let totalIncome = 0;
-                let livestockIncome = 0;
-                let cropIncome = 0;
-                const monthlyData = {};
+            let totalIncome = 0;
+            let livestockIncome = 0;
+            let cropIncome = 0;
+            const monthlyData = {};
+            
+            // Process livestock income
+            dataStorage.livestock.forEach(item => {
+                livestockIncome += item.incomeAmount;
+                totalIncome += item.incomeAmount;
                 
-                // Process livestock income
-                livestockSnap.forEach(doc => {
-                    const data = doc.data();
-                    livestockIncome += data.incomeAmount;
-                    totalIncome += data.incomeAmount;
-                    
-                    const date = new Date(data.date);
-                    const monthYear = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
-                    
-                    if (!monthlyData[monthYear]) {
-                        monthlyData[monthYear] = { livestock: 0, crops: 0, total: 0 };
-                    }
-                    monthlyData[monthYear].livestock += data.incomeAmount;
-                    monthlyData[monthYear].total += data.incomeAmount;
-                });
+                const date = new Date(item.date);
+                const monthYear = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
                 
-                // Process crop income
-                cropSnap.forEach(doc => {
-                    const data = doc.data();
-                    cropIncome += data.incomeAmount;
-                    totalIncome += data.incomeAmount;
-                    
-                    const date = new Date(data.date);
-                    const monthYear = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
-                    
-                    if (!monthlyData[monthYear]) {
-                        monthlyData[monthYear] = { livestock: 0, crops: 0, total: 0 };
-                    }
-                    monthlyData[monthYear].crops += data.incomeAmount;
-                    monthlyData[monthYear].total += data.incomeAmount;
-                });
+                if (!monthlyData[monthYear]) {
+                    monthlyData[monthYear] = { livestock: 0, crops: 0, total: 0 };
+                }
+                monthlyData[monthYear].livestock += item.incomeAmount;
+                monthlyData[monthYear].total += item.incomeAmount;
+            });
+            
+            // Process crop income
+            dataStorage.crops.forEach(item => {
+                cropIncome += item.incomeAmount;
+                totalIncome += item.incomeAmount;
                 
-                // Update dashboard
-                document.getElementById('totalIncome').textContent = `₹${totalIncome.toFixed(2)}`;
-                updateDashboardStats();
+                const date = new Date(item.date);
+                const monthYear = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
                 
-                // Update income sources table
-                const incomeSources = document.getElementById('incomeSources');
-                incomeSources.innerHTML = `
+                if (!monthlyData[monthYear]) {
+                    monthlyData[monthYear] = { livestock: 0, crops: 0, total: 0 };
+                }
+                monthlyData[monthYear].crops += item.incomeAmount;
+                monthlyData[monthYear].total += item.incomeAmount;
+            });
+            
+            // Update dashboard
+            document.getElementById('totalIncome').textContent = formatCurrency(totalIncome);
+            
+            // Update income sources table
+            const incomeSources = document.getElementById('incomeSources');
+            incomeSources.innerHTML = `
+                <tr>
+                    <td>Livestock</td>
+                    <td class="currency-cell income-cell">${formatCurrency(livestockIncome)}</td>
+                    <td>${totalIncome > 0 ? ((livestockIncome / totalIncome) * 100).toFixed(1) : 0}%</td>
+                </tr>
+                <tr>
+                    <td>Crops</td>
+                    <td class="currency-cell income-cell">${formatCurrency(cropIncome)}</td>
+                    <td>${totalIncome > 0 ? ((cropIncome / totalIncome) * 100).toFixed(1) : 0}%</td>
+                </tr>
+                <tr class="table-success">
+                    <td><strong>Total</strong></td>
+                    <td class="currency-cell income-cell"><strong>${formatCurrency(totalIncome)}</strong></td>
+                    <td><strong>100%</strong></td>
+                </tr>
+            `;
+            
+            // Update monthly income table
+            const monthlyIncomeTable = document.getElementById('monthlyIncome');
+            monthlyIncomeTable.innerHTML = '';
+            
+            Object.keys(monthlyData).sort().reverse().slice(0, 6).forEach(month => {
+                const row = `
                     <tr>
-                        <td>Livestock</td>
-                        <td>₹${livestockIncome.toFixed(2)}</td>
-                        <td>${totalIncome > 0 ? ((livestockIncome / totalIncome) * 100).toFixed(1) : 0}%</td>
-                    </tr>
-                    <tr>
-                        <td>Crops</td>
-                        <td>₹${cropIncome.toFixed(2)}</td>
-                        <td>${totalIncome > 0 ? ((cropIncome / totalIncome) * 100).toFixed(1) : 0}%</td>
-                    </tr>
-                    <tr class="table-success">
-                        <td><strong>Total</strong></td>
-                        <td><strong>₹${totalIncome.toFixed(2)}</strong></td>
-                        <td><strong>100%</strong></td>
+                        <td>${month}</td>
+                        <td class="currency-cell">${formatCurrency(monthlyData[month].livestock)}</td>
+                        <td class="currency-cell">${formatCurrency(monthlyData[month].crops)}</td>
+                        <td class="currency-cell income-cell">${formatCurrency(monthlyData[month].total)}</td>
                     </tr>
                 `;
-                
-                // Update monthly income table
-                const monthlyIncomeTable = document.getElementById('monthlyIncome');
-                monthlyIncomeTable.innerHTML = '';
-                
-                Object.keys(monthlyData).sort().reverse().slice(0, 6).forEach(month => {
-                    const row = `
-                        <tr>
-                            <td>${month}</td>
-                            <td>₹${monthlyData[month].livestock.toFixed(2)}</td>
-                            <td>₹${monthlyData[month].crops.toFixed(2)}</td>
-                            <td class="text-success">₹${monthlyData[month].total.toFixed(2)}</td>
-                        </tr>
-                    `;
-                    monthlyIncomeTable.innerHTML += row;
-                });
-                
-                // Create chart
-                createIncomeChart(monthlyData);
-                hideLoading();
-            }).catch(error => {
-                console.error('Error loading income data:', error);
-                hideLoading();
-            });
-        }
-
-        function createIncomeChart(monthlyData) {
-            const ctx = document.getElementById('incomeChart').getContext('2d');
-            
-            if (incomeChart) {
-                incomeChart.destroy();
-            }
-            
-            const months = Object.keys(monthlyData).sort().slice(-6);
-            const livestockData = months.map(month => monthlyData[month].livestock);
-            const cropData = months.map(month => monthlyData[month].crops);
-            
-            incomeChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: months,
-                    datasets: [
-                        {
-                            label: 'Livestock Income',
-                            data: livestockData,
-                            borderColor: '#2E8B57',
-                            backgroundColor: 'rgba(46, 139, 87, 0.1)',
-                            fill: true
-                        },
-                        {
-                            label: 'Crop Income',
-                            data: cropData,
-                            borderColor: '#4169E1',
-                            backgroundColor: 'rgba(65, 105, 225, 0.1)',
-                            fill: true
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                        },
-                        title: {
-                            display: true,
-                            text: 'Monthly Income Trend'
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                callback: function(value) {
-                                    return '₹' + value;
-                                }
-                            }
-                        }
-                    }
-                }
+                monthlyIncomeTable.innerHTML += row;
             });
         }
 
         // ========== CRUD OPERATIONS ==========
         function editRecord(collection, id) {
-            showLoading();
-            db.collection(collection).doc(id).get()
-                .then(doc => {
-                    if (doc.exists) {
-                        const data = doc.data();
-                        const form = document.getElementById('editForm');
-                        form.innerHTML = '';
-                        
-                        // Create form fields based on collection
-                        switch(collection) {
-                            case 'livestock':
-                                form.innerHTML = `
-                                    <div class="mb-3">
-                                        <label class="form-label">Category</label>
-                                        <select class="form-select" id="editCategory" required>
-                                            <option value="Cow" ${data.category === 'Cow' ? 'selected' : ''}>Cow</option>
-                                            <option value="Beef" ${data.category === 'Beef' ? 'selected' : ''}>Beef</option>
-                                            <option value="Goat" ${data.category === 'Goat' ? 'selected' : ''}>Goat</option>
-                                            <option value="Others" ${data.category === 'Others' ? 'selected' : ''}>Others</option>
-                                        </select>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Animal Name/ID</label>
-                                        <input type="text" class="form-control" id="editAnimalName" value="${data.animalName || ''}" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Expense Type</label>
-                                        <input type="text" class="form-control" id="editExpenseType" value="${data.expenseType || ''}">
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Expense Amount</label>
-                                        <input type="number" class="form-control" id="editExpenseAmount" value="${data.expenseAmount || 0}" step="0.01">
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Income Amount</label>
-                                        <input type="number" class="form-control" id="editIncomeAmount" value="${data.incomeAmount || 0}" step="0.01">
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Date</label>
-                                        <input type="date" class="form-control" id="editDate" value="${data.date || ''}" required>
-                                    </div>
-                                `;
-                                break;
-                            case 'crops':
-                                form.innerHTML = `
-                                    <div class="mb-3">
-                                        <label class="form-label">Crop Name</label>
-                                        <input type="text" class="form-control" id="editCropName" value="${data.cropName || ''}" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Expense Type</label>
-                                        <input type="text" class="form-control" id="editCropExpenseType" value="${data.expenseType || ''}" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Expense Amount</label>
-                                        <input type="number" class="form-control" id="editCropExpenseAmount" value="${data.expenseAmount || 0}" step="0.01" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Income Amount</label>
-                                        <input type="number" class="form-control" id="editCropIncome" value="${data.incomeAmount || 0}" step="0.01">
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Date</label>
-                                        <input type="date" class="form-control" id="editCropDate" value="${data.date || ''}" required>
-                                    </div>
-                                `;
-                                break;
-                            case 'expenses':
-                                form.innerHTML = `
-                                    <div class="mb-3">
-                                        <label class="form-label">Category</label>
-                                        <input type="text" class="form-control" id="editExpenseCategory" value="${data.category || ''}" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Amount</label>
-                                        <input type="number" class="form-control" id="editExpenseAmount" value="${data.amount || 0}" step="0.01" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Managed By</label>
-                                        <input type="text" class="form-control" id="editExpenseManagedBy" value="${data.managedBy || ''}" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Description</label>
-                                        <textarea class="form-control" id="editExpenseDescription" rows="2">${data.description || ''}</textarea>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Date</label>
-                                        <input type="date" class="form-control" id="editExpenseDate" value="${data.date || ''}" required>
-                                    </div>
-                                `;
-                                break;
-                        }
-                        
-                        document.getElementById('editId').value = id;
-                        document.getElementById('editCollection').value = collection;
-                        
-                        const modal = new bootstrap.Modal(document.getElementById('editModal'));
-                        modal.show();
-                        hideLoading();
-                    }
-                })
-                .catch(error => {
-                    console.error('Error loading document:', error);
-                    hideLoading();
-                });
+            let data;
+            switch(collection) {
+                case 'livestock':
+                    data = dataStorage.livestock.find(item => item.id === id);
+                    break;
+                case 'crops':
+                    data = dataStorage.crops.find(item => item.id === id);
+                    break;
+                case 'expenses':
+                    data = dataStorage.expenses.find(item => item.id === id);
+                    break;
+                case 'water':
+                    data = dataStorage.water.find(item => item.id === id);
+                    break;
+            }
+            
+            if (data) {
+                const form = document.getElementById('editForm');
+                form.innerHTML = '';
+                
+                // Create form fields based on collection
+                switch(collection) {
+                    case 'livestock':
+                        form.innerHTML = `
+                            <div class="mb-3">
+                                <label class="form-label">Category</label>
+                                <select class="form-select" id="editCategory" required>
+                                    <option value="Cow" ${data.category === 'Cow' ? 'selected' : ''}>Cow</option>
+                                    <option value="Beef" ${data.category === 'Beef' ? 'selected' : ''}>Beef</option>
+                                    <option value="Goat" ${data.category === 'Goat' ? 'selected' : ''}>Goat</option>
+                                    <option value="Others" ${data.category === 'Others' ? 'selected' : ''}>Others</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Animal Name/ID</label>
+                                <input type="text" class="form-control" id="editAnimalName" value="${data.animalName || ''}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Expense Type</label>
+                                <input type="text" class="form-control" id="editExpenseType" value="${data.expenseType || ''}">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Expense Amount</label>
+                                <input type="number" class="form-control" id="editExpenseAmount" value="${data.expenseAmount || 0}" step="1">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Income Amount</label>
+                                <input type="number" class="form-control" id="editIncomeAmount" value="${data.incomeAmount || 0}" step="1">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Date</label>
+                                <input type="date" class="form-control" id="editDate" value="${data.date || ''}" required>
+                            </div>
+                        `;
+                        break;
+                    case 'crops':
+                        form.innerHTML = `
+                            <div class="mb-3">
+                                <label class="form-label">Crop Name</label>
+                                <input type="text" class="form-control" id="editCropName" value="${data.cropName || ''}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Expense Type</label>
+                                <input type="text" class="form-control" id="editCropExpenseType" value="${data.expenseType || ''}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Expense Amount</label>
+                                <input type="number" class="form-control" id="editCropExpenseAmount" value="${data.expenseAmount || 0}" step="1" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Income Amount</label>
+                                <input type="number" class="form-control" id="editCropIncome" value="${data.incomeAmount || 0}" step="1">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Date</label>
+                                <input type="date" class="form-control" id="editCropDate" value="${data.date || ''}" required>
+                            </div>
+                        `;
+                        break;
+                    case 'expenses':
+                        form.innerHTML = `
+                            <div class="mb-3">
+                                <label class="form-label">Category</label>
+                                <input type="text" class="form-control" id="editExpenseCategory" value="${data.category || ''}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Amount</label>
+                                <input type="number" class="form-control" id="editExpenseAmount" value="${data.amount || 0}" step="1" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Managed By</label>
+                                <input type="text" class="form-control" id="editExpenseManagedBy" value="${data.managedBy || ''}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Description</label>
+                                <textarea class="form-control" id="editExpenseDescription" rows="2">${data.description || ''}</textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Date</label>
+                                <input type="date" class="form-control" id="editExpenseDate" value="${data.date || ''}" required>
+                            </div>
+                        `;
+                        break;
+                }
+                
+                document.getElementById('editId').value = id;
+                document.getElementById('editCollection').value = collection;
+                
+                const modal = new bootstrap.Modal(document.getElementById('editModal'));
+                modal.show();
+            }
         }
 
         function saveEdit() {
             const id = document.getElementById('editId').value;
             const collection = document.getElementById('editCollection').value;
             let updatedData = {};
+            let success = false;
             
             switch(collection) {
                 case 'livestock':
@@ -1757,63 +1711,66 @@
                         category: document.getElementById('editCategory').value,
                         animalName: document.getElementById('editAnimalName').value,
                         expenseType: document.getElementById('editExpenseType').value,
-                        expenseAmount: parseFloat(document.getElementById('editExpenseAmount').value) || 0,
-                        incomeAmount: parseFloat(document.getElementById('editIncomeAmount').value) || 0,
-                        date: document.getElementById('editDate').value,
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        expenseAmount: parseInt(document.getElementById('editExpenseAmount').value) || 0,
+                        incomeAmount: parseInt(document.getElementById('editIncomeAmount').value) || 0,
+                        date: document.getElementById('editDate').value
                     };
+                    success = dataStorage.updateLivestock(id, updatedData);
                     break;
                 case 'crops':
                     updatedData = {
                         cropName: document.getElementById('editCropName').value,
                         expenseType: document.getElementById('editCropExpenseType').value,
-                        expenseAmount: parseFloat(document.getElementById('editCropExpenseAmount').value) || 0,
-                        incomeAmount: parseFloat(document.getElementById('editCropIncome').value) || 0,
-                        date: document.getElementById('editCropDate').value,
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        expenseAmount: parseInt(document.getElementById('editCropExpenseAmount').value) || 0,
+                        incomeAmount: parseInt(document.getElementById('editCropIncome').value) || 0,
+                        date: document.getElementById('editCropDate').value
                     };
+                    success = dataStorage.updateCrop(id, updatedData);
                     break;
                 case 'expenses':
                     updatedData = {
                         category: document.getElementById('editExpenseCategory').value,
-                        amount: parseFloat(document.getElementById('editExpenseAmount').value) || 0,
+                        amount: parseInt(document.getElementById('editExpenseAmount').value) || 0,
                         managedBy: document.getElementById('editExpenseManagedBy').value,
                         description: document.getElementById('editExpenseDescription').value,
-                        date: document.getElementById('editExpenseDate').value,
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        date: document.getElementById('editExpenseDate').value
                     };
+                    success = dataStorage.updateExpense(id, updatedData);
                     break;
             }
             
-            showLoading();
-            db.collection(collection).doc(id).update(updatedData)
-                .then(() => {
-                    alert('Record updated successfully!');
-                    bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
-                    reloadCurrentTabData();
-                    hideLoading();
-                })
-                .catch(error => {
-                    console.error('Error updating document:', error);
-                    alert('Error updating record!');
-                    hideLoading();
-                });
+            if (success) {
+                alert('Record updated successfully!');
+                bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+                reloadCurrentTabData();
+                updateDashboardStats();
+            }
         }
 
         function deleteRecord(collection, id) {
             if (confirm('Are you sure you want to delete this record?')) {
-                showLoading();
-                db.collection(collection).doc(id).delete()
-                    .then(() => {
-                        alert('Record deleted successfully!');
-                        reloadCurrentTabData();
-                        hideLoading();
-                    })
-                    .catch(error => {
-                        console.error('Error deleting document:', error);
-                        alert('Error deleting record!');
-                        hideLoading();
-                    });
+                let success = false;
+                
+                switch(collection) {
+                    case 'livestock':
+                        success = dataStorage.deleteLivestock(id);
+                        break;
+                    case 'crops':
+                        success = dataStorage.deleteCrop(id);
+                        break;
+                    case 'expenses':
+                        success = dataStorage.deleteExpense(id);
+                        break;
+                    case 'water':
+                        success = dataStorage.deleteWater(id);
+                        break;
+                }
+                
+                if (success) {
+                    alert('Record deleted successfully!');
+                    reloadCurrentTabData();
+                    updateDashboardStats();
+                }
             }
         }
 
@@ -1868,7 +1825,6 @@
             
             if (!file) return;
             
-            showLoading();
             const reader = new FileReader();
             reader.onload = function(e) {
                 const data = new Uint8Array(e.target.result);
@@ -1884,54 +1840,41 @@
         }
 
         function processExcelData(type, data) {
-            const batch = db.batch();
-            const collection = type === 'livestock' ? 'livestock' : 'crops';
+            let count = 0;
             
             data.forEach(row => {
-                const docRef = db.collection(collection).doc();
-                let entry = {
-                    userId: currentUser.uid,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                };
-                
+                let entry;
                 if (type === 'livestock') {
                     entry = {
-                        ...entry,
                         date: row.Date || new Date().toISOString().split('T')[0],
                         category: row.Category || '',
                         animalName: row['Animal Name/ID'] || '',
                         expenseType: row['Expense Type'] || '',
-                        expenseAmount: parseFloat(row['Expense Amount']) || 0,
-                        incomeAmount: parseFloat(row['Income Amount']) || 0,
-                        description: row.Description || ''
+                        expenseAmount: parseInt(row['Expense Amount']) || 0,
+                        incomeAmount: parseInt(row['Income Amount']) || 0,
+                        description: row.Description || '',
+                        timestamp: new Date().toISOString()
                     };
+                    dataStorage.addLivestock(entry);
                 } else {
                     entry = {
-                        ...entry,
                         date: row.Date || new Date().toISOString().split('T')[0],
                         cropName: row['Crop Name'] || '',
                         expenseType: row['Expense Type'] || '',
-                        expenseAmount: parseFloat(row['Expense Amount']) || 0,
-                        incomeAmount: parseFloat(row['Income Amount']) || 0,
+                        expenseAmount: parseInt(row['Expense Amount']) || 0,
+                        incomeAmount: parseInt(row['Income Amount']) || 0,
                         area: parseFloat(row.Area) || 0,
-                        managedBy: row['Managed By'] || ''
+                        managedBy: row['Managed By'] || '',
+                        timestamp: new Date().toISOString()
                     };
+                    dataStorage.addCrop(entry);
                 }
-                
-                batch.set(docRef, entry);
+                count++;
             });
             
-            batch.commit()
-                .then(() => {
-                    alert(`${data.length} records imported successfully!`);
-                    reloadCurrentTabData();
-                    hideLoading();
-                })
-                .catch(error => {
-                    console.error('Error importing data:', error);
-                    alert('Error importing data!');
-                    hideLoading();
-                });
+            alert(`${count} records imported successfully!`);
+            reloadCurrentTabData();
+            updateDashboardStats();
         }
 
         function exportToExcel(type) {
@@ -1940,7 +1883,7 @@
             
             switch(type) {
                 case 'livestock':
-                    data = livestockData.map(item => [
+                    data = dataStorage.livestock.map(item => [
                         item.date,
                         item.category,
                         item.animalName,
@@ -1952,7 +1895,7 @@
                     fileName = `livestock_data_${new Date().toISOString().split('T')[0]}.xlsx`;
                     break;
                 case 'crops':
-                    data = cropData.map(item => [
+                    data = dataStorage.crops.map(item => [
                         item.date,
                         item.cropName,
                         item.expenseType,
@@ -1980,7 +1923,6 @@
 
         // ========== PDF GENERATION ==========
         function generateLivestockPDF() {
-            showLoading();
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
             
@@ -1993,13 +1935,13 @@
             doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, 22, { align: 'center' });
             
             // Prepare table data
-            const tableData = livestockData.map(item => [
+            const tableData = dataStorage.livestock.map(item => [
                 new Date(item.date).toLocaleDateString(),
                 item.category,
                 item.animalName,
                 item.expenseType,
-                `₹${item.expenseAmount.toFixed(2)}`,
-                `₹${item.incomeAmount.toFixed(2)}`,
+                formatCurrency(item.expenseAmount),
+                formatCurrency(item.incomeAmount),
                 item.description || ''
             ]);
             
@@ -2014,22 +1956,20 @@
             });
             
             // Add summary
-            const totalExpense = livestockData.reduce((sum, item) => sum + item.expenseAmount, 0);
-            const totalIncome = livestockData.reduce((sum, item) => sum + item.incomeAmount, 0);
+            const totalExpense = dataStorage.livestock.reduce((sum, item) => sum + item.expenseAmount, 0);
+            const totalIncome = dataStorage.livestock.reduce((sum, item) => sum + item.incomeAmount, 0);
             const finalY = doc.lastAutoTable.finalY + 10;
             
             doc.setFontSize(10);
-            doc.text(`Total Expense: ₹${totalExpense.toFixed(2)}`, 20, finalY);
-            doc.text(`Total Income: ₹${totalIncome.toFixed(2)}`, 20, finalY + 7);
-            doc.text(`Net Profit: ₹${(totalIncome - totalExpense).toFixed(2)}`, 20, finalY + 14);
+            doc.text(`Total Expense: ${formatCurrency(totalExpense)}`, 20, finalY);
+            doc.text(`Total Income: ${formatCurrency(totalIncome)}`, 20, finalY + 7);
+            doc.text(`Net Profit: ${formatCurrency(totalIncome - totalExpense)}`, 20, finalY + 14);
             
             // Save PDF
             doc.save(`livestock_report_${new Date().toISOString().split('T')[0]}.pdf`);
-            hideLoading();
         }
 
         function generateCropPDF() {
-            showLoading();
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
             
@@ -2042,12 +1982,12 @@
             doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, 22, { align: 'center' });
             
             // Prepare table data
-            const tableData = cropData.map(item => [
+            const tableData = dataStorage.crops.map(item => [
                 new Date(item.date).toLocaleDateString(),
                 item.cropName,
                 item.expenseType,
-                `₹${item.expenseAmount.toFixed(2)}`,
-                `₹${item.incomeAmount.toFixed(2)}`,
+                formatCurrency(item.expenseAmount),
+                formatCurrency(item.incomeAmount),
                 `${item.area || 0} acres`,
                 item.managedBy || ''
             ]);
@@ -2063,22 +2003,20 @@
             });
             
             // Add summary
-            const totalExpense = cropData.reduce((sum, item) => sum + item.expenseAmount, 0);
-            const totalIncome = cropData.reduce((sum, item) => sum + item.incomeAmount, 0);
+            const totalExpense = dataStorage.crops.reduce((sum, item) => sum + item.expenseAmount, 0);
+            const totalIncome = dataStorage.crops.reduce((sum, item) => sum + item.incomeAmount, 0);
             const finalY = doc.lastAutoTable.finalY + 10;
             
             doc.setFontSize(10);
-            doc.text(`Total Expense: ₹${totalExpense.toFixed(2)}`, 20, finalY);
-            doc.text(`Total Income: ₹${totalIncome.toFixed(2)}`, 20, finalY + 7);
-            doc.text(`Net Profit: ₹${(totalIncome - totalExpense).toFixed(2)}`, 20, finalY + 14);
+            doc.text(`Total Expense: ${formatCurrency(totalExpense)}`, 20, finalY);
+            doc.text(`Total Income: ${formatCurrency(totalIncome)}`, 20, finalY + 7);
+            doc.text(`Net Profit: ${formatCurrency(totalIncome - totalExpense)}`, 20, finalY + 14);
             
             // Save PDF
             doc.save(`crop_report_${new Date().toISOString().split('T')[0]}.pdf`);
-            hideLoading();
         }
 
         function generateMonthlyReport() {
-            showLoading();
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
             
@@ -2093,7 +2031,7 @@
             
             let yPos = 40;
             
-            // Load all data for the month
+            // Calculate totals for the current month
             const startDate = new Date();
             startDate.setDate(1);
             startDate.setHours(0, 0, 0, 0);
@@ -2103,193 +2041,230 @@
             endDate.setDate(0);
             endDate.setHours(23, 59, 59, 999);
             
-            Promise.all([
-                db.collection('livestock')
-                    .where('userId', '==', currentUser.uid)
-                    .where('date', '>=', startDate.toISOString().split('T')[0])
-                    .where('date', '<=', endDate.toISOString().split('T')[0])
-                    .get(),
-                db.collection('crops')
-                    .where('userId', '==', currentUser.uid)
-                    .where('date', '>=', startDate.toISOString().split('T')[0])
-                    .where('date', '<=', endDate.toISOString().split('T')[0])
-                    .get(),
-                db.collection('expenses')
-                    .where('userId', '==', currentUser.uid)
-                    .where('date', '>=', startDate.toISOString().split('T')[0])
-                    .where('date', '<=', endDate.toISOString().split('T')[0])
-                    .get()
-            ]).then(([livestockSnap, cropSnap, expenseSnap]) => {
-                // Calculate totals
-                let livestockIncome = 0;
-                let livestockExpense = 0;
-                let cropIncome = 0;
-                let cropExpense = 0;
-                let otherExpenses = 0;
-                
-                livestockSnap.forEach(doc => {
-                    const data = doc.data();
-                    livestockIncome += data.incomeAmount || 0;
-                    livestockExpense += data.expenseAmount || 0;
-                });
-                
-                cropSnap.forEach(doc => {
-                    const data = doc.data();
-                    cropIncome += data.incomeAmount || 0;
-                    cropExpense += data.expenseAmount || 0;
-                });
-                
-                expenseSnap.forEach(doc => {
-                    const data = doc.data();
-                    otherExpenses += data.amount || 0;
-                });
-                
-                const totalIncome = livestockIncome + cropIncome;
-                const totalExpense = livestockExpense + cropExpense + otherExpenses;
-                const netProfit = totalIncome - totalExpense;
-                
-                // Add summary section
-                doc.setFontSize(14);
-                doc.text('Financial Summary', 20, yPos);
-                yPos += 10;
-                
-                doc.setFontSize(10);
-                doc.text(`Livestock Income: ₹${livestockIncome.toFixed(2)}`, 20, yPos);
-                doc.text(`Livestock Expenses: ₹${livestockExpense.toFixed(2)}`, 20, yPos + 7);
-                doc.text(`Crop Income: ₹${cropIncome.toFixed(2)}`, 20, yPos + 14);
-                doc.text(`Crop Expenses: ₹${cropExpense.toFixed(2)}`, 20, yPos + 21);
-                doc.text(`Other Expenses: ₹${otherExpenses.toFixed(2)}`, 20, yPos + 28);
-                
-                yPos += 40;
-                
-                // Add totals
-                doc.setFontSize(12);
-                doc.setDrawColor(0);
-                doc.setLineWidth(0.5);
-                doc.line(20, yPos, 190, yPos);
-                yPos += 10;
-                
-                doc.text(`Total Income: ₹${totalIncome.toFixed(2)}`, 20, yPos);
-                doc.text(`Total Expenses: ₹${totalExpense.toFixed(2)}`, 20, yPos + 7);
-                doc.text(`Net Profit: ₹${netProfit.toFixed(2)}`, 20, yPos + 14);
-                
-                if (netProfit >= 0) {
-                    doc.setTextColor(0, 128, 0);
-                } else {
-                    doc.setTextColor(255, 0, 0);
-                }
-                
-                // Reset color
-                doc.setTextColor(0);
-                
-                // Save PDF
-                doc.save(`monthly_report_${new Date().toISOString().split('T')[0]}.pdf`);
-                hideLoading();
+            const startDateStr = startDate.toISOString().split('T')[0];
+            const endDateStr = endDate.toISOString().split('T')[0];
+            
+            const currentMonthLivestock = dataStorage.livestock.filter(item => 
+                item.date >= startDateStr && item.date <= endDateStr);
+            const currentMonthCrops = dataStorage.crops.filter(item => 
+                item.date >= startDateStr && item.date <= endDateStr);
+            const currentMonthExpenses = dataStorage.expenses.filter(item => 
+                item.date >= startDateStr && item.date <= endDateStr);
+            
+            // Calculate totals
+            let livestockIncome = 0;
+            let livestockExpense = 0;
+            let cropIncome = 0;
+            let cropExpense = 0;
+            let otherExpenses = 0;
+            
+            currentMonthLivestock.forEach(item => {
+                livestockIncome += item.incomeAmount || 0;
+                livestockExpense += item.expenseAmount || 0;
             });
+            
+            currentMonthCrops.forEach(item => {
+                cropIncome += item.incomeAmount || 0;
+                cropExpense += item.expenseAmount || 0;
+            });
+            
+            currentMonthExpenses.forEach(item => {
+                otherExpenses += item.amount || 0;
+            });
+            
+            const totalIncome = livestockIncome + cropIncome;
+            const totalExpense = livestockExpense + cropExpense + otherExpenses;
+            const netProfit = totalIncome - totalExpense;
+            
+            // Add summary section
+            doc.setFontSize(14);
+            doc.text('Financial Summary', 20, yPos);
+            yPos += 10;
+            
+            doc.setFontSize(10);
+            doc.text(`Livestock Income: ${formatCurrency(livestockIncome)}`, 20, yPos);
+            doc.text(`Livestock Expenses: ${formatCurrency(livestockExpense)}`, 20, yPos + 7);
+            doc.text(`Crop Income: ${formatCurrency(cropIncome)}`, 20, yPos + 14);
+            doc.text(`Crop Expenses: ${formatCurrency(cropExpense)}`, 20, yPos + 21);
+            doc.text(`Other Expenses: ${formatCurrency(otherExpenses)}`, 20, yPos + 28);
+            
+            yPos += 40;
+            
+            // Add totals
+            doc.setFontSize(12);
+            doc.setDrawColor(0);
+            doc.setLineWidth(0.5);
+            doc.line(20, yPos, 190, yPos);
+            yPos += 10;
+            
+            doc.text(`Total Income: ${formatCurrency(totalIncome)}`, 20, yPos);
+            doc.text(`Total Expenses: ${formatCurrency(totalExpense)}`, 20, yPos + 7);
+            doc.text(`Net Profit: ${formatCurrency(netProfit)}`, 20, yPos + 14);
+            
+            // Save PDF
+            doc.save(`monthly_report_${new Date().toISOString().split('T')[0]}.pdf`);
         }
 
         // ========== DASHBOARD FUNCTIONS ==========
         function updateDashboardStats() {
-            // This function updates the dashboard with real-time data
-            showLoading();
+            // Calculate livestock stats
+            let totalLivestock = 0;
+            let totalCrops = 0;
+            let totalIncome = 0;
+            let totalExpenses = 0;
             
-            Promise.all([
-                db.collection('livestock').where('userId', '==', currentUser.uid).get(),
-                db.collection('crops').where('userId', '==', currentUser.uid).get(),
-                db.collection('expenses').where('userId', '==', currentUser.uid).get()
-            ]).then(([livestockSnap, cropSnap, expenseSnap]) => {
-                let totalLivestock = 0;
-                let totalCrops = 0;
-                let totalIncome = 0;
-                let totalExpenses = 0;
-                
-                // Calculate livestock stats
-                livestockSnap.forEach(doc => {
-                    const data = doc.data();
-                    totalLivestock++;
-                    totalIncome += data.incomeAmount || 0;
-                    totalExpenses += data.expenseAmount || 0;
-                });
-                
-                // Calculate crop stats
-                const uniqueCrops = new Set();
-                cropSnap.forEach(doc => {
-                    const data = doc.data();
-                    uniqueCrops.add(data.cropName);
-                    totalIncome += data.incomeAmount || 0;
-                    totalExpenses += data.expenseAmount || 0;
-                });
-                totalCrops = uniqueCrops.size;
-                
-                // Calculate expense stats
-                expenseSnap.forEach(doc => {
-                    const data = doc.data();
-                    totalExpenses += data.amount || 0;
-                });
-                
-                // Update UI
-                document.getElementById('totalLivestock').textContent = totalLivestock;
-                document.getElementById('totalCrops').textContent = totalCrops;
-                document.getElementById('totalIncome').textContent = `₹${totalIncome.toFixed(2)}`;
-                document.getElementById('totalExpenses').textContent = `₹${totalExpenses.toFixed(2)}`;
-                
-                // Update recent transactions
-                updateRecentTransactions();
-                hideLoading();
+            dataStorage.livestock.forEach(item => {
+                totalLivestock++;
+                totalIncome += item.incomeAmount || 0;
+                totalExpenses += item.expenseAmount || 0;
             });
+            
+            // Calculate crop stats
+            const uniqueCrops = new Set();
+            dataStorage.crops.forEach(item => {
+                uniqueCrops.add(item.cropName);
+                totalIncome += item.incomeAmount || 0;
+                totalExpenses += item.expenseAmount || 0;
+            });
+            totalCrops = uniqueCrops.size;
+            
+            // Calculate expense stats
+            dataStorage.expenses.forEach(item => {
+                totalExpenses += item.amount || 0;
+            });
+            
+            // Calculate water expenses
+            dataStorage.water.forEach(item => {
+                totalExpenses += item.totalBill || 0;
+            });
+            
+            // Update UI
+            document.getElementById('totalLivestock').textContent = totalLivestock;
+            document.getElementById('totalCrops').textContent = totalCrops;
+            document.getElementById('totalIncome').textContent = formatCurrency(totalIncome);
+            document.getElementById('totalExpenses').textContent = formatCurrency(totalExpenses);
+            
+            // Update recent transactions
+            updateRecentTransactions();
         }
 
         function updateRecentTransactions() {
-            const transactions = [];
+            const allTransactions = [];
             
-            // Get recent livestock transactions
-            db.collection('livestock')
-                .where('userId', '==', currentUser.uid)
-                .orderBy('timestamp', 'desc')
-                .limit(5)
-                .get()
-                .then(snapshot => {
-                    snapshot.forEach(doc => {
-                        const data = doc.data();
-                        transactions.push({
-                            date: data.date,
-                            type: 'Livestock',
-                            description: `${data.category} - ${data.animalName}`,
-                            amount: data.incomeAmount - data.expenseAmount,
-                            isIncome: data.incomeAmount > data.expenseAmount
-                        });
+            // Add livestock transactions
+            dataStorage.livestock.forEach(item => {
+                if (item.incomeAmount > 0 || item.expenseAmount > 0) {
+                    allTransactions.push({
+                        date: item.date,
+                        type: 'Livestock',
+                        description: `${item.category} - ${item.animalName}`,
+                        amount: item.incomeAmount - item.expenseAmount,
+                        isIncome: item.incomeAmount > item.expenseAmount,
+                        timestamp: item.timestamp
                     });
-                    
-                    // Display transactions
-                    const container = document.getElementById('recentTransactions');
-                    container.innerHTML = '';
-                    
-                    transactions.forEach(transaction => {
-                        const div = document.createElement('div');
-                        div.className = `d-flex justify-content-between align-items-center p-2 mb-2 ${transaction.isIncome ? 'bg-success bg-opacity-10' : 'bg-danger bg-opacity-10'}`;
-                        div.innerHTML = `
-                            <div>
-                                <small class="text-muted">${new Date(transaction.date).toLocaleDateString()}</small>
-                                <div>${transaction.type}: ${transaction.description}</div>
-                            </div>
-                            <div class="${transaction.isIncome ? 'text-success' : 'text-danger'}">
-                                ${transaction.isIncome ? '+' : '-'}₹${Math.abs(transaction.amount).toFixed(2)}
-                            </div>
-                        `;
-                        container.appendChild(div);
+                }
+            });
+            
+            // Add crop transactions
+            dataStorage.crops.forEach(item => {
+                if (item.incomeAmount > 0 || item.expenseAmount > 0) {
+                    allTransactions.push({
+                        date: item.date,
+                        type: 'Crop',
+                        description: `${item.cropName}`,
+                        amount: item.incomeAmount - item.expenseAmount,
+                        isIncome: item.incomeAmount > item.expenseAmount,
+                        timestamp: item.timestamp
                     });
+                }
+            });
+            
+            // Add expense transactions
+            dataStorage.expenses.forEach(item => {
+                allTransactions.push({
+                    date: item.date,
+                    type: 'Expense',
+                    description: `${item.category} - ${item.description}`,
+                    amount: -item.amount,
+                    isIncome: false,
+                    timestamp: item.timestamp
                 });
+            });
+            
+            // Sort by timestamp (most recent first) and take top 5
+            allTransactions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            const recentTransactions = allTransactions.slice(0, 5);
+            
+            // Display transactions
+            const container = document.getElementById('recentTransactions');
+            container.innerHTML = '';
+            
+            recentTransactions.forEach(transaction => {
+                const div = document.createElement('div');
+                div.className = `d-flex justify-content-between align-items-center p-2 mb-2 ${transaction.isIncome ? 'bg-success bg-opacity-10' : 'bg-danger bg-opacity-10'}`;
+                div.innerHTML = `
+                    <div>
+                        <small class="text-muted">${new Date(transaction.date).toLocaleDateString()}</small>
+                        <div>${transaction.type}: ${transaction.description}</div>
+                    </div>
+                    <div class="${transaction.isIncome ? 'text-success' : 'text-danger'}">
+                        ${transaction.isIncome ? '+' : '-'}${formatCurrency(Math.abs(transaction.amount))}
+                    </div>
+                `;
+                container.appendChild(div);
+            });
         }
 
-        // ========== UTILITY FUNCTIONS ==========
-        function logout() {
-            if (confirm('Are you sure you want to logout?')) {
-                auth.signOut().then(() => {
-                    window.location.reload();
-                });
+        // ========== DATA BACKUP & RESTORE ==========
+        function exportAllData() {
+            const data = dataStorage.exportData();
+            const dataStr = JSON.stringify(data, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            
+            const exportFileDefaultName = `farm_management_backup_${new Date().toISOString().split('T')[0]}.json`;
+            
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+            
+            alert('All data exported successfully!');
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    dataStorage.importData(data);
+                    alert('Data imported successfully!');
+                    loadAllData();
+                    updateDashboardStats();
+                } catch (error) {
+                    alert('Error importing data. Please check the file format.');
+                }
+            };
+            reader.readAsText(file);
+            
+            // Reset file input
+            event.target.value = '';
+        }
+
+        function clearAllData() {
+            if (confirm('Are you sure you want to clear ALL data? This action cannot be undone.')) {
+                if (confirm('WARNING: This will delete ALL records. Are you absolutely sure?')) {
+                    dataStorage.clearData();
+                    alert('All data cleared!');
+                    loadAllData();
+                    updateDashboardStats();
+                }
             }
         }
 
+        // ========== UTILITY FUNCTIONS ==========
         function loadAllData() {
             loadLivestockData();
             loadCropData();
@@ -2303,7 +2278,7 @@
             const fromDate = document.getElementById('livestockFromDate').value;
             const toDate = document.getElementById('livestockToDate').value;
             
-            let filteredData = livestockData;
+            let filteredData = dataStorage.livestock;
             
             if (fromDate) {
                 filteredData = filteredData.filter(item => item.date >= fromDate);
@@ -2324,8 +2299,8 @@
                         <td>${item.category}</td>
                         <td>${item.animalName}</td>
                         <td>${item.expenseType}</td>
-                        <td class="text-danger">₹${item.expenseAmount.toFixed(2)}</td>
-                        <td class="text-success">₹${item.incomeAmount.toFixed(2)}</td>
+                        <td class="currency-cell expense-cell">${formatCurrency(item.expenseAmount)}</td>
+                        <td class="currency-cell income-cell">${formatCurrency(item.incomeAmount)}</td>
                         <td>
                             <button class="btn btn-sm btn-warning me-1" onclick="editRecord('livestock', '${item.id}')">
                                 <i class="fas fa-edit"></i>
@@ -2362,12 +2337,12 @@
             document.getElementById('reportToDate').value = today;
         }
 
-        // Call initializeDates on load
-        setTimeout(initializeDates, 1000);
-
         // Additional report functions
+        function generateMonthlySummary() {
+            generateMonthlyReport();
+        }
+
         function generateFinancialAnalysis() {
-            showLoading();
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
             
@@ -2376,15 +2351,41 @@
             doc.setFontSize(10);
             doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, 28, { align: 'center' });
             
-            // You can add more detailed analysis here
-            doc.text('Detailed financial analysis will be implemented based on your data.', 20, 40);
+            // Calculate totals
+            let totalIncome = 0;
+            let totalExpenses = 0;
+            
+            dataStorage.livestock.forEach(item => {
+                totalIncome += item.incomeAmount;
+                totalExpenses += item.expenseAmount;
+            });
+            
+            dataStorage.crops.forEach(item => {
+                totalIncome += item.incomeAmount;
+                totalExpenses += item.expenseAmount;
+            });
+            
+            dataStorage.expenses.forEach(item => {
+                totalExpenses += item.amount;
+            });
+            
+            dataStorage.water.forEach(item => {
+                totalExpenses += item.totalBill;
+            });
+            
+            const netProfit = totalIncome - totalExpenses;
+            
+            // Add analysis
+            doc.setFontSize(12);
+            doc.text(`Total Income: ${formatCurrency(totalIncome)}`, 20, 40);
+            doc.text(`Total Expenses: ${formatCurrency(totalExpenses)}`, 20, 50);
+            doc.text(`Net Profit: ${formatCurrency(netProfit)}`, 20, 60);
+            doc.text(`Profit Margin: ${totalIncome > 0 ? ((netProfit / totalIncome) * 100).toFixed(2) : 0}%`, 20, 70);
             
             doc.save(`financial_analysis_${new Date().toISOString().split('T')[0]}.pdf`);
-            hideLoading();
         }
 
         function generateManagedExpensesReport() {
-            showLoading();
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
             
@@ -2393,7 +2394,7 @@
             
             // Group expenses by manager
             const managedExpenses = {};
-            expenseData.forEach(expense => {
+            dataStorage.expenses.forEach(expense => {
                 if (!managedExpenses[expense.managedBy]) {
                     managedExpenses[expense.managedBy] = 0;
                 }
@@ -2403,7 +2404,7 @@
             // Create table data
             const tableData = Object.keys(managedExpenses).map(manager => [
                 manager,
-                `₹${managedExpenses[manager].toFixed(2)}`
+                formatCurrency(managedExpenses[manager])
             ]);
             
             doc.autoTable({
@@ -2415,7 +2416,47 @@
             });
             
             doc.save(`managed_expenses_${new Date().toISOString().split('T')[0]}.pdf`);
-            hideLoading();
+        }
+
+        function generateWaterReportPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            doc.setFontSize(16);
+            doc.text('Water Supply Report', 105, 15, { align: 'center' });
+            
+            // Prepare table data
+            const tableData = dataStorage.water.map(item => [
+                new Date(item.date).toLocaleDateString(),
+                item.farmerName,
+                formatCurrency(item.totalBill),
+                formatCurrency(item.paymentReceived),
+                formatCurrency(item.balance),
+                `${Math.round((new Date(item.endTime) - new Date(item.startTime)) / (1000 * 60 * 60))} hours`
+            ]);
+            
+            // Add table
+            doc.autoTable({
+                head: [['Date', 'Farmer', 'Total Bill', 'Paid', 'Balance', 'Hours']],
+                body: tableData,
+                startY: 25,
+                theme: 'grid',
+                styles: { fontSize: 8 },
+                headStyles: { fillColor: [65, 105, 225] }
+            });
+            
+            // Calculate totals
+            const totalBill = dataStorage.water.reduce((sum, item) => sum + item.totalBill, 0);
+            const totalPaid = dataStorage.water.reduce((sum, item) => sum + item.paymentReceived, 0);
+            const totalBalance = dataStorage.water.reduce((sum, item) => sum + item.balance, 0);
+            const finalY = doc.lastAutoTable.finalY + 10;
+            
+            doc.setFontSize(10);
+            doc.text(`Total Billed: ${formatCurrency(totalBill)}`, 20, finalY);
+            doc.text(`Total Received: ${formatCurrency(totalPaid)}`, 20, finalY + 7);
+            doc.text(`Pending Balance: ${formatCurrency(totalBalance)}`, 20, finalY + 14);
+            
+            doc.save(`water_report_${new Date().toISOString().split('T')[0]}.pdf`);
         }
 
         // Report form handler
@@ -2430,7 +2471,7 @@
             const toDate = document.getElementById('reportToDate').value;
             
             alert(`Generating ${reportType} report from ${fromDate} to ${toDate}`);
-            // Implement custom report generation based on type and date range
+            // You can implement custom report generation based on type and date range
         }
 
         // Quick report functions
@@ -2449,11 +2490,10 @@
 
         function showAllLedgers() {
             alert('Showing all farmer ledgers');
-            // Implement showing all ledgers in a modal
         }
 
         function exportWaterReport() {
-            alert('Exporting water supply report to Excel');
+            exportToExcel('water');
         }
 
         function loadReportData() {
@@ -2461,7 +2501,7 @@
             console.log('Loading report data...');
         }
 
-        // Auto-save functionality
+        // Auto-save functionality for forms
         function autoSaveForm(formId, collection) {
             const form = document.getElementById(formId);
             form.addEventListener('input', function() {
@@ -2493,6 +2533,12 @@
         autoSaveForm('cropForm', 'crops');
         autoSaveForm('waterForm', 'water');
         autoSaveForm('expenseForm', 'expenses');
+
+        // Initialize the app
+        window.onload = function() {
+            loadAllData();
+            updateDashboardStats();
+        };
     </script>
 </body>
 </html>
