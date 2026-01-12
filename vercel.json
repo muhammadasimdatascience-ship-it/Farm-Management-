@@ -8,7 +8,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com/ajax/libs https://cdn.sheetjs.com; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com/ajax/libs https://cdn.sheetjs.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com/ajax/libs;"
+          "value": "default-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com/ajax/libs https://cdn.sheetjs.com https://cdn.jsdelivr.net; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com/ajax/libs https://cdn.sheetjs.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com/ajax/libs; font-src 'self' https://cdnjs.cloudflare.com/ajax/libs;"
         }
       ]
     }
