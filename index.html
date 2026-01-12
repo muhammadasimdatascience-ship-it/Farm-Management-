@@ -1,0 +1,2498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Farm Management System</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <!-- jsPDF for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.28/dist/jspdf.plugin.autotable.min.js"></script>
+    <!-- SheetJS for Excel -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #2E8B57;
+            --secondary-color: #FFD700;
+            --accent-color: #4169E1;
+        }
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .navbar {
+            background: linear-gradient(135deg, var(--primary-color), #3CB371);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .sidebar {
+            background: white;
+            min-height: calc(100vh - 56px);
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+        .sidebar .nav-link {
+            color: #333;
+            padding: 12px 20px;
+            border-left: 4px solid transparent;
+            transition: all 0.3s;
+        }
+        .sidebar .nav-link:hover,
+        .sidebar .nav-link.active {
+            background-color: #e8f5e8;
+            border-left-color: var(--primary-color);
+            color: var(--primary-color);
+        }
+        .card {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        .btn-primary:hover {
+            background-color: #26734d;
+            border-color: #26734d;
+        }
+        .tab-content {
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .table th {
+            background-color: #f8f9fa;
+            border-top: none;
+        }
+        .form-control:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.2rem rgba(46, 139, 87, 0.25);
+        }
+        .modal-header {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        .export-btn {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+        }
+        .export-btn:hover {
+            background-color: #3154b8;
+        }
+        .ledger-entry {
+            border-left: 4px solid;
+            padding-left: 10px;
+            margin-bottom: 10px;
+        }
+        .debit {
+            border-left-color: #dc3545;
+            background-color: #ffe6e6;
+        }
+        .credit {
+            border-left-color: #28a745;
+            background-color: #e6ffe6;
+        }
+        .dashboard-icon {
+            font-size: 3rem;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+        }
+        .loading {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.8);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .date-range {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Spinner -->
+    <div class="loading" id="loading">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-tractor me-2"></i>
+                Farm Management System
+            </a>
+            <div class="d-flex align-items-center">
+                <span class="text-white me-3" id="currentDate"></span>
+                <button class="btn btn-outline-light" onclick="logout()">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-lg-2 col-md-3 sidebar">
+                <nav class="nav flex-column pt-3">
+                    <a class="nav-link active" href="#dashboard" onclick="showTab('dashboard')">
+                        <i class="fas fa-home me-2"></i> Dashboard
+                    </a>
+                    <a class="nav-link" href="#livestock" onclick="showTab('livestock')">
+                        <i class="fas fa-cow me-2"></i> Livestock
+                    </a>
+                    <a class="nav-link" href="#crops" onclick="showTab('crops')">
+                        <i class="fas fa-seedling me-2"></i> Crops
+                    </a>
+                    <a class="nav-link" href="#water" onclick="showTab('water')">
+                        <i class="fas fa-tint me-2"></i> Water Supply
+                    </a>
+                    <a class="nav-link" href="#expenses" onclick="showTab('expenses')">
+                        <i class="fas fa-money-bill-wave me-2"></i> Expenses
+                    </a>
+                    <a class="nav-link" href="#income" onclick="showTab('income')">
+                        <i class="fas fa-chart-line me-2"></i> Income
+                    </a>
+                    <a class="nav-link" href="#reports" onclick="showTab('reports')">
+                        <i class="fas fa-file-alt me-2"></i> Reports
+                    </a>
+                </nav>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-lg-10 col-md-9">
+                <!-- Dashboard -->
+                <div id="dashboard" class="tab-content">
+                    <h2 class="mb-4"><i class="fas fa-home text-primary me-2"></i>Dashboard</h2>
+                    <div class="row mb-4">
+                        <div class="col-md-3 mb-3">
+                            <div class="card stat-card text-center">
+                                <div class="card-body">
+                                    <i class="fas fa-cow dashboard-icon"></i>
+                                    <h5>Total Livestock</h5>
+                                    <h3 id="totalLivestock">0</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card stat-card text-center">
+                                <div class="card-body">
+                                    <i class="fas fa-seedling dashboard-icon"></i>
+                                    <h5>Crop Areas</h5>
+                                    <h3 id="totalCrops">0</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card stat-card text-center">
+                                <div class="card-body">
+                                    <i class="fas fa-money-bill-wave dashboard-icon"></i>
+                                    <h5>Total Income</h5>
+                                    <h3 id="totalIncome">₹0</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card stat-card text-center">
+                                <div class="card-body">
+                                    <i class="fas fa-coins dashboard-icon"></i>
+                                    <h5>Total Expenses</h5>
+                                    <h3 id="totalExpenses">₹0</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Recent Transactions</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div id="recentTransactions"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Quick Actions</h5>
+                                </div>
+                                <div class="card-body">
+                                    <button class="btn btn-primary mb-2 w-100" onclick="showTab('livestock')">
+                                        <i class="fas fa-plus me-2"></i>Add Livestock Entry
+                                    </button>
+                                    <button class="btn btn-primary mb-2 w-100" onclick="showTab('crops')">
+                                        <i class="fas fa-plus me-2"></i>Add Crop Entry
+                                    </button>
+                                    <button class="btn btn-primary mb-2 w-100" onclick="generateMonthlyReport()">
+                                        <i class="fas fa-file-pdf me-2"></i>Generate Monthly Report
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 01: Livestock -->
+                <div id="livestock" class="tab-content" style="display: none;">
+                    <h2 class="mb-4"><i class="fas fa-cow text-primary me-2"></i>Livestock Management</h2>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Add Livestock Entry</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="livestockForm">
+                                        <div class="mb-3">
+                                            <label class="form-label">Category</label>
+                                            <select class="form-select" id="livestockCategory" required>
+                                                <option value="">Select Category</option>
+                                                <option value="Cow">Cow</option>
+                                                <option value="Beef">Beef</option>
+                                                <option value="Goat">Goat</option>
+                                                <option value="Others">Others</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Animal Name/ID</label>
+                                            <input type="text" class="form-control" id="animalName" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Expense Type</label>
+                                            <select class="form-select" id="expenseType">
+                                                <option value="">Select Expense Type</option>
+                                                <option value="Khal">Khal</option>
+                                                <option value="Chokar">Chokar</option>
+                                                <option value="Tori">Tori</option>
+                                                <option value="Ghaas">Ghaas (Grass/Fodder)</option>
+                                                <option value="Medical">Medical</option>
+                                                <option value="Others">Others</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Amount (₹)</label>
+                                            <input type="number" class="form-control" id="expenseAmount" step="0.01">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Income (₹)</label>
+                                            <input type="number" class="form-control" id="incomeAmount" step="0.01">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Date</label>
+                                            <input type="date" class="form-control" id="entryDate" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Description</label>
+                                            <textarea class="form-control" id="description" rows="2"></textarea>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary w-100">
+                                            <i class="fas fa-save me-2"></i>Save Entry
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="card">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h5 class="mb-0">Livestock Records</h5>
+                                    <div>
+                                        <button class="btn btn-sm export-btn me-2" onclick="downloadExcelTemplate('livestock')">
+                                            <i class="fas fa-download me-1"></i>Excel Template
+                                        </button>
+                                        <button class="btn btn-sm btn-primary" onclick="document.getElementById('excelUpload').click()">
+                                            <i class="fas fa-upload me-1"></i>Upload Excel
+                                        </button>
+                                        <input type="file" id="excelUpload" style="display:none" accept=".xlsx,.xls" onchange="uploadExcel('livestock')">
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="date-range mb-3">
+                                        <div class="row">
+                                            <div class="col-md-5">
+                                                <label class="form-label">From Date</label>
+                                                <input type="date" class="form-control" id="livestockFromDate">
+                                            </div>
+                                            <div class="col-md-5">
+                                                <label class="form-label">To Date</label>
+                                                <input type="date" class="form-control" id="livestockToDate">
+                                            </div>
+                                            <div class="col-md-2 d-flex align-items-end">
+                                                <button class="btn btn-primary w-100" onclick="filterLivestockRecords()">
+                                                    <i class="fas fa-filter"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="table table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Date</th>
+                                                    <th>Category</th>
+                                                    <th>Name/ID</th>
+                                                    <th>Expense Type</th>
+                                                    <th>Expense (₹)</th>
+                                                    <th>Income (₹)</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="livestockTable">
+                                                <!-- Data will be populated here -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div class="mt-3">
+                                        <button class="btn btn-primary" onclick="generateLivestockPDF()">
+                                            <i class="fas fa-file-pdf me-2"></i>Generate PDF Report
+                                        </button>
+                                        <button class="btn btn-success ms-2" onclick="exportToExcel('livestock')">
+                                            <i class="fas fa-file-excel me-2"></i>Export to Excel
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 02: Crops -->
+                <div id="crops" class="tab-content" style="display: none;">
+                    <h2 class="mb-4"><i class="fas fa-seedling text-primary me-2"></i>Crop Management</h2>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Add Crop Entry</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="cropForm">
+                                        <div class="mb-3">
+                                            <label class="form-label">Crop Name</label>
+                                            <input type="text" class="form-control" id="cropName" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Expense Type</label>
+                                            <select class="form-select" id="cropExpenseType" required>
+                                                <option value="">Select Type</option>
+                                                <option value="Labor">Labor</option>
+                                                <option value="Seeds">Seeds (Beej)</option>
+                                                <option value="Fertilizer">Fertilizer (Khaad)</option>
+                                                <option value="Spray">Spray</option>
+                                                <option value="Irrigation">Irrigation</option>
+                                                <option value="Others">Others</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Expense Amount (₹)</label>
+                                            <input type="number" class="form-control" id="cropExpenseAmount" step="0.01" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Income (₹)</label>
+                                            <input type="number" class="form-control" id="cropIncome" step="0.01">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Area (Acres)</label>
+                                            <input type="number" class="form-control" id="cropArea" step="0.01">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Date</label>
+                                            <input type="date" class="form-control" id="cropDate" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Managed By</label>
+                                            <input type="text" class="form-control" id="cropManagedBy">
+                                        </div>
+                                        <button type="submit" class="btn btn-primary w-100">
+                                            <i class="fas fa-save me-2"></i>Save Entry
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="card">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h5 class="mb-0">Crop Records</h5>
+                                    <div>
+                                        <button class="btn btn-sm export-btn me-2" onclick="downloadExcelTemplate('crops')">
+                                            <i class="fas fa-download me-1"></i>Excel Template
+                                        </button>
+                                        <button class="btn btn-sm btn-primary" onclick="document.getElementById('cropExcelUpload').click()">
+                                            <i class="fas fa-upload me-1"></i>Upload Excel
+                                        </button>
+                                        <input type="file" id="cropExcelUpload" style="display:none" accept=".xlsx,.xls" onchange="uploadExcel('crops')">
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="date-range mb-3">
+                                        <div class="row">
+                                            <div class="col-md-5">
+                                                <label class="form-label">From Date</label>
+                                                <input type="date" class="form-control" id="cropFromDate">
+                                            </div>
+                                            <div class="col-md-5">
+                                                <label class="form-label">To Date</label>
+                                                <input type="date" class="form-control" id="cropToDate">
+                                            </div>
+                                            <div class="col-md-2 d-flex align-items-end">
+                                                <button class="btn btn-primary w-100" onclick="filterCropRecords()">
+                                                    <i class="fas fa-filter"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="table table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Date</th>
+                                                    <th>Crop</th>
+                                                    <th>Expense Type</th>
+                                                    <th>Expense (₹)</th>
+                                                    <th>Income (₹)</th>
+                                                    <th>Area</th>
+                                                    <th>Managed By</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="cropTable">
+                                                <!-- Data will be populated here -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div class="mt-3">
+                                        <button class="btn btn-primary" onclick="generateCropPDF()">
+                                            <i class="fas fa-file-pdf me-2"></i>Generate PDF Report
+                                        </button>
+                                        <button class="btn btn-success ms-2" onclick="exportToExcel('crops')">
+                                            <i class="fas fa-file-excel me-2"></i>Export to Excel
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 03: Water Supply -->
+                <div id="water" class="tab-content" style="display: none;">
+                    <h2 class="mb-4"><i class="fas fa-tint text-primary me-2"></i>Water Supply Management</h2>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Water Billing Entry</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="waterForm">
+                                        <div class="mb-3">
+                                            <label class="form-label">Farmer Name</label>
+                                            <input type="text" class="form-control" id="farmerName" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Start Time</label>
+                                            <input type="datetime-local" class="form-control" id="startTime" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">End Time</label>
+                                            <input type="datetime-local" class="form-control" id="endTime" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Rate (₹ per hour)</label>
+                                            <input type="number" class="form-control" id="waterRate" value="100" step="0.01" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Payment Received (₹)</label>
+                                            <input type="number" class="form-control" id="paymentReceived" step="0.01">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Date</label>
+                                            <input type="date" class="form-control" id="waterDate" required>
+                                        </div>
+                                        <div class="alert alert-info">
+                                            <strong>Calculated Bill:</strong>
+                                            <div id="calculatedBill">₹0.00</div>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary w-100">
+                                            <i class="fas fa-save me-2"></i>Save Entry
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Farmer Ledgers</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Farmer</th>
+                                                    <th>Total Bill (₹)</th>
+                                                    <th>Paid (₹)</th>
+                                                    <th>Balance (₹)</th>
+                                                    <th>Last Payment</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="waterTable">
+                                                <!-- Data will be populated here -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div class="mt-3">
+                                        <button class="btn btn-primary" onclick="showAllLedgers()">
+                                            <i class="fas fa-book me-2"></i>View All Ledgers
+                                        </button>
+                                        <button class="btn btn-success ms-2" onclick="exportWaterReport()">
+                                            <i class="fas fa-file-excel me-2"></i>Export Report
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 04: Expenses -->
+                <div id="expenses" class="tab-content" style="display: none;">
+                    <h2 class="mb-4"><i class="fas fa-money-bill-wave text-primary me-2"></i>Expense Management</h2>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h5>Total Expenses</h5>
+                                    <h3 id="totalExpensesAmount">₹0</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h5>This Month</h5>
+                                    <h3 id="monthlyExpenses">₹0</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h5>By Category</h5>
+                                    <h3 id="categoryExpenses">-</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h5>Managed Expenses</h5>
+                                    <h3 id="managedExpenses">₹0</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Add Expense</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="expenseForm">
+                                        <div class="mb-3">
+                                            <label class="form-label">Expense Category</label>
+                                            <select class="form-select" id="expenseCategory" required>
+                                                <option value="">Select Category</option>
+                                                <option value="Salary">Salaries</option>
+                                                <option value="Livestock">Livestock Expenses</option>
+                                                <option value="Crop">Crop Expenses</option>
+                                                <option value="Machinery">Machinery</option>
+                                                <option value="Maintenance">Maintenance</option>
+                                                <option value="Utilities">Utilities</option>
+                                                <option value="Others">Others</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Amount (₹)</label>
+                                            <input type="number" class="form-control" id="expenseAmount" step="0.01" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Managed By</label>
+                                            <input type="text" class="form-control" id="expenseManagedBy" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Description</label>
+                                            <textarea class="form-control" id="expenseDescription" rows="2" required></textarea>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Date</label>
+                                            <input type="date" class="form-control" id="expenseDate" required>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary w-100">
+                                            <i class="fas fa-save me-2"></i>Save Expense
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Expense Records</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Date</th>
+                                                    <th>Category</th>
+                                                    <th>Amount (₹)</th>
+                                                    <th>Managed By</th>
+                                                    <th>Description</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="expenseTable">
+                                                <!-- Data will be populated here -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 05: Income -->
+                <div id="income" class="tab-content" style="display: none;">
+                    <h2 class="mb-4"><i class="fas fa-chart-line text-primary me-2"></i>Income Consolidated</h2>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-body">
+                                    <canvas id="incomeChart" height="100"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Income Sources</h5>
+                                </div>
+                                <div class="card-body">
+                                    <table class="table">
+                                        <thead>
+                                            <tr>
+                                                <th>Source</th>
+                                                <th>Amount (₹)</th>
+                                                <th>Percentage</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="incomeSources">
+                                            <!-- Data will be populated here -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Monthly Income Trend</h5>
+                                </div>
+                                <div class="card-body">
+                                    <table class="table">
+                                        <thead>
+                                            <tr>
+                                                <th>Month</th>
+                                                <th>Livestock</th>
+                                                <th>Crops</th>
+                                                <th>Total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="monthlyIncome">
+                                            <!-- Data will be populated here -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 06: Reports -->
+                <div id="reports" class="tab-content" style="display: none;">
+                    <h2 class="mb-4"><i class="fas fa-file-alt text-primary me-2"></i>Reports & Analytics</h2>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Generate Reports</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-4 mb-3">
+                                            <div class="card h-100">
+                                                <div class="card-body text-center">
+                                                    <i class="fas fa-file-pdf fa-3x text-danger mb-3"></i>
+                                                    <h5>Monthly Summary</h5>
+                                                    <p class="text-muted">Complete monthly report</p>
+                                                    <button class="btn btn-danger" onclick="generateMonthlySummary()">
+                                                        Generate PDF
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4 mb-3">
+                                            <div class="card h-100">
+                                                <div class="card-body text-center">
+                                                    <i class="fas fa-chart-bar fa-3x text-primary mb-3"></i>
+                                                    <h5>Financial Analysis</h5>
+                                                    <p class="text-muted">Income vs Expenses</p>
+                                                    <button class="btn btn-primary" onclick="generateFinancialAnalysis()">
+                                                        Generate Report
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4 mb-3">
+                                            <div class="card h-100">
+                                                <div class="card-body text-center">
+                                                    <i class="fas fa-user-tie fa-3x text-success mb-3"></i>
+                                                    <h5>Managed Expenses</h5>
+                                                    <p class="text-muted">By individual</p>
+                                                    <button class="btn btn-success" onclick="generateManagedExpensesReport()">
+                                                        Generate Report
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Date Range Reports</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="reportForm">
+                                        <div class="mb-3">
+                                            <label class="form-label">Report Type</label>
+                                            <select class="form-select" id="reportType">
+                                                <option value="livestock">Livestock</option>
+                                                <option value="crops">Crops</option>
+                                                <option value="expenses">Expenses</option>
+                                                <option value="income">Income</option>
+                                                <option value="water">Water Supply</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">From Date</label>
+                                            <input type="date" class="form-control" id="reportFromDate" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">To Date</label>
+                                            <input type="date" class="form-control" id="reportToDate" required>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary w-100">
+                                            <i class="fas fa-chart-bar me-2"></i>Generate Report
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Quick Reports</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="d-grid gap-2">
+                                        <button class="btn btn-outline-primary" onclick="generateTodayReport()">
+                                            Today's Report
+                                        </button>
+                                        <button class="btn btn-outline-primary" onclick="generateWeeklyReport()">
+                                            Weekly Report
+                                        </button>
+                                        <button class="btn btn-outline-primary" onclick="generateMonthlyReport()">
+                                            Monthly Report
+                                        </button>
+                                        <button class="btn btn-outline-primary" onclick="generateYearlyReport()">
+                                            Yearly Report
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div class="modal fade" id="editModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Record</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editForm">
+                        <input type="hidden" id="editId">
+                        <input type="hidden" id="editCollection">
+                        <!-- Dynamic form fields will be added here -->
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="saveEdit()">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ledger Modal -->
+    <div class="modal fade" id="ledgerModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Farmer Ledger</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <h6 id="ledgerFarmerName"></h6>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Bill (₹)</th>
+                                    <th>Paid (₹)</th>
+                                    <th>Balance (₹)</th>
+                                    <th>Type</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ledgerDetails">
+                                <!-- Ledger details will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDgHtY0LmJz8L8Q5Q5Q5Q5Q5Q5Q5Q5Q5Q5Q",
+            authDomain: "farm-management-system.firebaseapp.com",
+            projectId: "farm-management-system",
+            storageBucket: "farm-management-system.appspot.com",
+            messagingSenderId: "123456789012",
+            appId: "1:123456789012:web:abcdef1234567890"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        // Global Variables
+        let currentUser = null;
+        let livestockData = [];
+        let cropData = [];
+        let expenseData = [];
+        let waterData = [];
+        let incomeChart = null;
+
+        // Initialize Application
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+            updateCurrentDate();
+            setInterval(updateCurrentDate, 60000);
+        });
+
+        function initializeApp() {
+            showLoading();
+            // Check authentication
+            auth.onAuthStateChanged((user) => {
+                if (user) {
+                    currentUser = user;
+                    loadAllData();
+                    hideLoading();
+                } else {
+                    // Auto login for demo
+                    auth.signInAnonymously()
+                        .then(() => {
+                            currentUser = auth.currentUser;
+                            loadAllData();
+                            hideLoading();
+                        })
+                        .catch((error) => {
+                            console.error("Login error:", error);
+                            hideLoading();
+                        });
+                }
+            });
+        }
+
+        function showLoading() {
+            document.getElementById('loading').style.display = 'flex';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function updateCurrentDate() {
+            const now = new Date();
+            document.getElementById('currentDate').textContent = 
+                now.toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                });
+        }
+
+        function showTab(tabName) {
+            // Hide all tabs
+            const tabs = document.querySelectorAll('.tab-content');
+            tabs.forEach(tab => {
+                tab.style.display = 'none';
+            });
+            
+            // Remove active class from all nav links
+            const navLinks = document.querySelectorAll('.sidebar .nav-link');
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName).style.display = 'block';
+            
+            // Add active class to clicked nav link
+            event.target.classList.add('active');
+            
+            // Load specific tab data
+            switch(tabName) {
+                case 'livestock':
+                    loadLivestockData();
+                    break;
+                case 'crops':
+                    loadCropData();
+                    break;
+                case 'water':
+                    loadWaterData();
+                    break;
+                case 'expenses':
+                    loadExpenseData();
+                    break;
+                case 'income':
+                    loadIncomeData();
+                    break;
+                case 'reports':
+                    loadReportData();
+                    break;
+            }
+        }
+
+        // ========== LIVESTOCK MANAGEMENT ==========
+        document.getElementById('livestockForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            saveLivestockEntry();
+        });
+
+        function saveLivestockEntry() {
+            const entry = {
+                category: document.getElementById('livestockCategory').value,
+                animalName: document.getElementById('animalName').value,
+                expenseType: document.getElementById('expenseType').value,
+                expenseAmount: parseFloat(document.getElementById('expenseAmount').value) || 0,
+                incomeAmount: parseFloat(document.getElementById('incomeAmount').value) || 0,
+                date: document.getElementById('entryDate').value,
+                description: document.getElementById('description').value,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                userId: currentUser.uid
+            };
+
+            showLoading();
+            db.collection('livestock').add(entry)
+                .then(() => {
+                    alert('Entry saved successfully!');
+                    document.getElementById('livestockForm').reset();
+                    loadLivestockData();
+                    hideLoading();
+                })
+                .catch(error => {
+                    console.error('Error saving entry:', error);
+                    alert('Error saving entry!');
+                    hideLoading();
+                });
+        }
+
+        function loadLivestockData() {
+            showLoading();
+            db.collection('livestock')
+                .where('userId', '==', currentUser.uid)
+                .orderBy('timestamp', 'desc')
+                .get()
+                .then(snapshot => {
+                    livestockData = [];
+                    const tableBody = document.getElementById('livestockTable');
+                    tableBody.innerHTML = '';
+                    
+                    let totalIncome = 0;
+                    let totalExpense = 0;
+                    let totalAnimals = 0;
+                    
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        data.id = doc.id;
+                        livestockData.push(data);
+                        
+                        const row = `
+                            <tr>
+                                <td>${new Date(data.date).toLocaleDateString()}</td>
+                                <td>${data.category}</td>
+                                <td>${data.animalName}</td>
+                                <td>${data.expenseType}</td>
+                                <td class="text-danger">₹${data.expenseAmount.toFixed(2)}</td>
+                                <td class="text-success">₹${data.incomeAmount.toFixed(2)}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-warning me-1" onclick="editRecord('livestock', '${doc.id}')">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" onclick="deleteRecord('livestock', '${doc.id}')">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                        tableBody.innerHTML += row;
+                        
+                        totalIncome += data.incomeAmount;
+                        totalExpense += data.expenseAmount;
+                        totalAnimals++;
+                    });
+                    
+                    // Update dashboard stats
+                    document.getElementById('totalLivestock').textContent = totalAnimals;
+                    updateDashboardStats();
+                    hideLoading();
+                })
+                .catch(error => {
+                    console.error('Error loading livestock data:', error);
+                    hideLoading();
+                });
+        }
+
+        // ========== CROP MANAGEMENT ==========
+        document.getElementById('cropForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            saveCropEntry();
+        });
+
+        function saveCropEntry() {
+            const entry = {
+                cropName: document.getElementById('cropName').value,
+                expenseType: document.getElementById('cropExpenseType').value,
+                expenseAmount: parseFloat(document.getElementById('cropExpenseAmount').value) || 0,
+                incomeAmount: parseFloat(document.getElementById('cropIncome').value) || 0,
+                area: parseFloat(document.getElementById('cropArea').value) || 0,
+                date: document.getElementById('cropDate').value,
+                managedBy: document.getElementById('cropManagedBy').value,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                userId: currentUser.uid
+            };
+
+            showLoading();
+            db.collection('crops').add(entry)
+                .then(() => {
+                    alert('Crop entry saved successfully!');
+                    document.getElementById('cropForm').reset();
+                    loadCropData();
+                    hideLoading();
+                })
+                .catch(error => {
+                    console.error('Error saving crop entry:', error);
+                    alert('Error saving entry!');
+                    hideLoading();
+                });
+        }
+
+        function loadCropData() {
+            showLoading();
+            db.collection('crops')
+                .where('userId', '==', currentUser.uid)
+                .orderBy('timestamp', 'desc')
+                .get()
+                .then(snapshot => {
+                    cropData = [];
+                    const tableBody = document.getElementById('cropTable');
+                    tableBody.innerHTML = '';
+                    
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        data.id = doc.id;
+                        cropData.push(data);
+                        
+                        const row = `
+                            <tr>
+                                <td>${new Date(data.date).toLocaleDateString()}</td>
+                                <td>${data.cropName}</td>
+                                <td>${data.expenseType}</td>
+                                <td class="text-danger">₹${data.expenseAmount.toFixed(2)}</td>
+                                <td class="text-success">₹${data.incomeAmount.toFixed(2)}</td>
+                                <td>${data.area} acres</td>
+                                <td>${data.managedBy}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-warning me-1" onclick="editRecord('crops', '${doc.id}')">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" onclick="deleteRecord('crops', '${doc.id}')">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                        tableBody.innerHTML += row;
+                    });
+                    hideLoading();
+                })
+                .catch(error => {
+                    console.error('Error loading crop data:', error);
+                    hideLoading();
+                });
+        }
+
+        // ========== WATER SUPPLY MANAGEMENT ==========
+        document.getElementById('waterForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            saveWaterEntry();
+        });
+
+        // Calculate bill in real-time
+        document.getElementById('endTime').addEventListener('change', calculateBill);
+        document.getElementById('startTime').addEventListener('change', calculateBill);
+        document.getElementById('waterRate').addEventListener('input', calculateBill);
+
+        function calculateBill() {
+            const startTime = document.getElementById('startTime').value;
+            const endTime = document.getElementById('endTime').value;
+            const rate = parseFloat(document.getElementById('waterRate').value) || 0;
+            
+            if (startTime && endTime) {
+                const start = new Date(startTime);
+                const end = new Date(endTime);
+                const hours = (end - start) / (1000 * 60 * 60);
+                
+                if (hours > 0) {
+                    const bill = hours * rate;
+                    document.getElementById('calculatedBill').textContent = `₹${bill.toFixed(2)}`;
+                }
+            }
+        }
+
+        function saveWaterEntry() {
+            const startTime = document.getElementById('startTime').value;
+            const endTime = document.getElementById('endTime').value;
+            const start = new Date(startTime);
+            const end = new Date(endTime);
+            const hours = (end - start) / (1000 * 60 * 60);
+            const bill = hours * parseFloat(document.getElementById('waterRate').value);
+
+            const entry = {
+                farmerName: document.getElementById('farmerName').value,
+                startTime: startTime,
+                endTime: endTime,
+                rate: parseFloat(document.getElementById('waterRate').value),
+                totalBill: bill,
+                paymentReceived: parseFloat(document.getElementById('paymentReceived').value) || 0,
+                balance: bill - (parseFloat(document.getElementById('paymentReceived').value) || 0),
+                date: document.getElementById('waterDate').value,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                userId: currentUser.uid
+            };
+
+            showLoading();
+            db.collection('waterSupply').add(entry)
+                .then(() => {
+                    alert('Water billing entry saved successfully!');
+                    document.getElementById('waterForm').reset();
+                    document.getElementById('calculatedBill').textContent = '₹0.00';
+                    loadWaterData();
+                    hideLoading();
+                })
+                .catch(error => {
+                    console.error('Error saving water entry:', error);
+                    alert('Error saving entry!');
+                    hideLoading();
+                });
+        }
+
+        function loadWaterData() {
+            showLoading();
+            db.collection('waterSupply')
+                .where('userId', '==', currentUser.uid)
+                .orderBy('timestamp', 'desc')
+                .get()
+                .then(snapshot => {
+                    waterData = [];
+                    const farmerSummary = {};
+                    const tableBody = document.getElementById('waterTable');
+                    tableBody.innerHTML = '';
+                    
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        data.id = doc.id;
+                        waterData.push(data);
+                        
+                        // Aggregate farmer data
+                        if (!farmerSummary[data.farmerName]) {
+                            farmerSummary[data.farmerName] = {
+                                totalBill: 0,
+                                totalPaid: 0,
+                                lastPayment: ''
+                            };
+                        }
+                        farmerSummary[data.farmerName].totalBill += data.totalBill;
+                        farmerSummary[data.farmerName].totalPaid += data.paymentReceived;
+                        farmerSummary[data.farmerName].lastPayment = data.date;
+                    });
+                    
+                    // Display summary
+                    for (const farmer in farmerSummary) {
+                        const balance = farmerSummary[farmer].totalBill - farmerSummary[farmer].totalPaid;
+                        const row = `
+                            <tr>
+                                <td><strong>${farmer}</strong></td>
+                                <td>₹${farmerSummary[farmer].totalBill.toFixed(2)}</td>
+                                <td class="text-success">₹${farmerSummary[farmer].totalPaid.toFixed(2)}</td>
+                                <td class="${balance > 0 ? 'text-danger' : 'text-success'}">
+                                    ₹${balance.toFixed(2)}
+                                </td>
+                                <td>${farmerSummary[farmer].lastPayment}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-info" onclick="viewFarmerLedger('${farmer}')">
+                                        <i class="fas fa-eye"></i> Ledger
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                        tableBody.innerHTML += row;
+                    }
+                    hideLoading();
+                })
+                .catch(error => {
+                    console.error('Error loading water data:', error);
+                    hideLoading();
+                });
+        }
+
+        function viewFarmerLedger(farmerName) {
+            showLoading();
+            db.collection('waterSupply')
+                .where('userId', '==', currentUser.uid)
+                .where('farmerName', '==', farmerName)
+                .orderBy('date', 'asc')
+                .get()
+                .then(snapshot => {
+                    const ledgerDetails = document.getElementById('ledgerDetails');
+                    ledgerDetails.innerHTML = '';
+                    let runningBalance = 0;
+                    
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        runningBalance += data.balance;
+                        
+                        const row = `
+                            <tr>
+                                <td>${new Date(data.date).toLocaleDateString()}</td>
+                                <td>₹${data.totalBill.toFixed(2)}</td>
+                                <td class="text-success">₹${data.paymentReceived.toFixed(2)}</td>
+                                <td class="${data.balance > 0 ? 'text-danger' : 'text-success'}">
+                                    ₹${data.balance.toFixed(2)}
+                                </td>
+                                <td>${data.paymentReceived > 0 ? 'Payment' : 'Bill'}</td>
+                            </tr>
+                        `;
+                        ledgerDetails.innerHTML += row;
+                    });
+                    
+                    document.getElementById('ledgerFarmerName').textContent = `Ledger for ${farmerName} - Total Balance: ₹${runningBalance.toFixed(2)}`;
+                    new bootstrap.Modal(document.getElementById('ledgerModal')).show();
+                    hideLoading();
+                });
+        }
+
+        // ========== EXPENSE MANAGEMENT ==========
+        document.getElementById('expenseForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            saveExpense();
+        });
+
+        function saveExpense() {
+            const expense = {
+                category: document.getElementById('expenseCategory').value,
+                amount: parseFloat(document.getElementById('expenseAmount').value),
+                managedBy: document.getElementById('expenseManagedBy').value,
+                description: document.getElementById('expenseDescription').value,
+                date: document.getElementById('expenseDate').value,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                userId: currentUser.uid
+            };
+
+            showLoading();
+            db.collection('expenses').add(expense)
+                .then(() => {
+                    alert('Expense saved successfully!');
+                    document.getElementById('expenseForm').reset();
+                    loadExpenseData();
+                    hideLoading();
+                })
+                .catch(error => {
+                    console.error('Error saving expense:', error);
+                    alert('Error saving expense!');
+                    hideLoading();
+                });
+        }
+
+        function loadExpenseData() {
+            showLoading();
+            db.collection('expenses')
+                .where('userId', '==', currentUser.uid)
+                .orderBy('timestamp', 'desc')
+                .get()
+                .then(snapshot => {
+                    expenseData = [];
+                    const tableBody = document.getElementById('expenseTable');
+                    tableBody.innerHTML = '';
+                    
+                    let totalExpenses = 0;
+                    let monthlyExpenses = 0;
+                    const currentMonth = new Date().getMonth();
+                    const currentYear = new Date().getFullYear();
+                    
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        data.id = doc.id;
+                        expenseData.push(data);
+                        
+                        const expenseDate = new Date(data.date);
+                        if (expenseDate.getMonth() === currentMonth && expenseDate.getFullYear() === currentYear) {
+                            monthlyExpenses += data.amount;
+                        }
+                        totalExpenses += data.amount;
+                        
+                        const row = `
+                            <tr>
+                                <td>${new Date(data.date).toLocaleDateString()}</td>
+                                <td>${data.category}</td>
+                                <td class="text-danger">₹${data.amount.toFixed(2)}</td>
+                                <td>${data.managedBy}</td>
+                                <td>${data.description}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-warning me-1" onclick="editRecord('expenses', '${doc.id}')">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" onclick="deleteRecord('expenses', '${doc.id}')">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                        tableBody.innerHTML += row;
+                    });
+                    
+                    // Update expense statistics
+                    document.getElementById('totalExpensesAmount').textContent = `₹${totalExpenses.toFixed(2)}`;
+                    document.getElementById('monthlyExpenses').textContent = `₹${monthlyExpenses.toFixed(2)}`;
+                    document.getElementById('totalExpenses').textContent = `₹${totalExpenses.toFixed(2)}`;
+                    updateDashboardStats();
+                    hideLoading();
+                })
+                .catch(error => {
+                    console.error('Error loading expense data:', error);
+                    hideLoading();
+                });
+        }
+
+        // ========== INCOME MANAGEMENT ==========
+        function loadIncomeData() {
+            showLoading();
+            // Aggregate income from livestock and crops
+            Promise.all([
+                db.collection('livestock').where('userId', '==', currentUser.uid).get(),
+                db.collection('crops').where('userId', '==', currentUser.uid).get()
+            ]).then(([livestockSnap, cropSnap]) => {
+                let totalIncome = 0;
+                let livestockIncome = 0;
+                let cropIncome = 0;
+                const monthlyData = {};
+                
+                // Process livestock income
+                livestockSnap.forEach(doc => {
+                    const data = doc.data();
+                    livestockIncome += data.incomeAmount;
+                    totalIncome += data.incomeAmount;
+                    
+                    const date = new Date(data.date);
+                    const monthYear = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+                    
+                    if (!monthlyData[monthYear]) {
+                        monthlyData[monthYear] = { livestock: 0, crops: 0, total: 0 };
+                    }
+                    monthlyData[monthYear].livestock += data.incomeAmount;
+                    monthlyData[monthYear].total += data.incomeAmount;
+                });
+                
+                // Process crop income
+                cropSnap.forEach(doc => {
+                    const data = doc.data();
+                    cropIncome += data.incomeAmount;
+                    totalIncome += data.incomeAmount;
+                    
+                    const date = new Date(data.date);
+                    const monthYear = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+                    
+                    if (!monthlyData[monthYear]) {
+                        monthlyData[monthYear] = { livestock: 0, crops: 0, total: 0 };
+                    }
+                    monthlyData[monthYear].crops += data.incomeAmount;
+                    monthlyData[monthYear].total += data.incomeAmount;
+                });
+                
+                // Update dashboard
+                document.getElementById('totalIncome').textContent = `₹${totalIncome.toFixed(2)}`;
+                updateDashboardStats();
+                
+                // Update income sources table
+                const incomeSources = document.getElementById('incomeSources');
+                incomeSources.innerHTML = `
+                    <tr>
+                        <td>Livestock</td>
+                        <td>₹${livestockIncome.toFixed(2)}</td>
+                        <td>${totalIncome > 0 ? ((livestockIncome / totalIncome) * 100).toFixed(1) : 0}%</td>
+                    </tr>
+                    <tr>
+                        <td>Crops</td>
+                        <td>₹${cropIncome.toFixed(2)}</td>
+                        <td>${totalIncome > 0 ? ((cropIncome / totalIncome) * 100).toFixed(1) : 0}%</td>
+                    </tr>
+                    <tr class="table-success">
+                        <td><strong>Total</strong></td>
+                        <td><strong>₹${totalIncome.toFixed(2)}</strong></td>
+                        <td><strong>100%</strong></td>
+                    </tr>
+                `;
+                
+                // Update monthly income table
+                const monthlyIncomeTable = document.getElementById('monthlyIncome');
+                monthlyIncomeTable.innerHTML = '';
+                
+                Object.keys(monthlyData).sort().reverse().slice(0, 6).forEach(month => {
+                    const row = `
+                        <tr>
+                            <td>${month}</td>
+                            <td>₹${monthlyData[month].livestock.toFixed(2)}</td>
+                            <td>₹${monthlyData[month].crops.toFixed(2)}</td>
+                            <td class="text-success">₹${monthlyData[month].total.toFixed(2)}</td>
+                        </tr>
+                    `;
+                    monthlyIncomeTable.innerHTML += row;
+                });
+                
+                // Create chart
+                createIncomeChart(monthlyData);
+                hideLoading();
+            }).catch(error => {
+                console.error('Error loading income data:', error);
+                hideLoading();
+            });
+        }
+
+        function createIncomeChart(monthlyData) {
+            const ctx = document.getElementById('incomeChart').getContext('2d');
+            
+            if (incomeChart) {
+                incomeChart.destroy();
+            }
+            
+            const months = Object.keys(monthlyData).sort().slice(-6);
+            const livestockData = months.map(month => monthlyData[month].livestock);
+            const cropData = months.map(month => monthlyData[month].crops);
+            
+            incomeChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: months,
+                    datasets: [
+                        {
+                            label: 'Livestock Income',
+                            data: livestockData,
+                            borderColor: '#2E8B57',
+                            backgroundColor: 'rgba(46, 139, 87, 0.1)',
+                            fill: true
+                        },
+                        {
+                            label: 'Crop Income',
+                            data: cropData,
+                            borderColor: '#4169E1',
+                            backgroundColor: 'rgba(65, 105, 225, 0.1)',
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: true,
+                            text: 'Monthly Income Trend'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '₹' + value;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // ========== CRUD OPERATIONS ==========
+        function editRecord(collection, id) {
+            showLoading();
+            db.collection(collection).doc(id).get()
+                .then(doc => {
+                    if (doc.exists) {
+                        const data = doc.data();
+                        const form = document.getElementById('editForm');
+                        form.innerHTML = '';
+                        
+                        // Create form fields based on collection
+                        switch(collection) {
+                            case 'livestock':
+                                form.innerHTML = `
+                                    <div class="mb-3">
+                                        <label class="form-label">Category</label>
+                                        <select class="form-select" id="editCategory" required>
+                                            <option value="Cow" ${data.category === 'Cow' ? 'selected' : ''}>Cow</option>
+                                            <option value="Beef" ${data.category === 'Beef' ? 'selected' : ''}>Beef</option>
+                                            <option value="Goat" ${data.category === 'Goat' ? 'selected' : ''}>Goat</option>
+                                            <option value="Others" ${data.category === 'Others' ? 'selected' : ''}>Others</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Animal Name/ID</label>
+                                        <input type="text" class="form-control" id="editAnimalName" value="${data.animalName || ''}" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Expense Type</label>
+                                        <input type="text" class="form-control" id="editExpenseType" value="${data.expenseType || ''}">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Expense Amount</label>
+                                        <input type="number" class="form-control" id="editExpenseAmount" value="${data.expenseAmount || 0}" step="0.01">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Income Amount</label>
+                                        <input type="number" class="form-control" id="editIncomeAmount" value="${data.incomeAmount || 0}" step="0.01">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Date</label>
+                                        <input type="date" class="form-control" id="editDate" value="${data.date || ''}" required>
+                                    </div>
+                                `;
+                                break;
+                            case 'crops':
+                                form.innerHTML = `
+                                    <div class="mb-3">
+                                        <label class="form-label">Crop Name</label>
+                                        <input type="text" class="form-control" id="editCropName" value="${data.cropName || ''}" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Expense Type</label>
+                                        <input type="text" class="form-control" id="editCropExpenseType" value="${data.expenseType || ''}" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Expense Amount</label>
+                                        <input type="number" class="form-control" id="editCropExpenseAmount" value="${data.expenseAmount || 0}" step="0.01" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Income Amount</label>
+                                        <input type="number" class="form-control" id="editCropIncome" value="${data.incomeAmount || 0}" step="0.01">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Date</label>
+                                        <input type="date" class="form-control" id="editCropDate" value="${data.date || ''}" required>
+                                    </div>
+                                `;
+                                break;
+                            case 'expenses':
+                                form.innerHTML = `
+                                    <div class="mb-3">
+                                        <label class="form-label">Category</label>
+                                        <input type="text" class="form-control" id="editExpenseCategory" value="${data.category || ''}" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Amount</label>
+                                        <input type="number" class="form-control" id="editExpenseAmount" value="${data.amount || 0}" step="0.01" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Managed By</label>
+                                        <input type="text" class="form-control" id="editExpenseManagedBy" value="${data.managedBy || ''}" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Description</label>
+                                        <textarea class="form-control" id="editExpenseDescription" rows="2">${data.description || ''}</textarea>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Date</label>
+                                        <input type="date" class="form-control" id="editExpenseDate" value="${data.date || ''}" required>
+                                    </div>
+                                `;
+                                break;
+                        }
+                        
+                        document.getElementById('editId').value = id;
+                        document.getElementById('editCollection').value = collection;
+                        
+                        const modal = new bootstrap.Modal(document.getElementById('editModal'));
+                        modal.show();
+                        hideLoading();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading document:', error);
+                    hideLoading();
+                });
+        }
+
+        function saveEdit() {
+            const id = document.getElementById('editId').value;
+            const collection = document.getElementById('editCollection').value;
+            let updatedData = {};
+            
+            switch(collection) {
+                case 'livestock':
+                    updatedData = {
+                        category: document.getElementById('editCategory').value,
+                        animalName: document.getElementById('editAnimalName').value,
+                        expenseType: document.getElementById('editExpenseType').value,
+                        expenseAmount: parseFloat(document.getElementById('editExpenseAmount').value) || 0,
+                        incomeAmount: parseFloat(document.getElementById('editIncomeAmount').value) || 0,
+                        date: document.getElementById('editDate').value,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+                    break;
+                case 'crops':
+                    updatedData = {
+                        cropName: document.getElementById('editCropName').value,
+                        expenseType: document.getElementById('editCropExpenseType').value,
+                        expenseAmount: parseFloat(document.getElementById('editCropExpenseAmount').value) || 0,
+                        incomeAmount: parseFloat(document.getElementById('editCropIncome').value) || 0,
+                        date: document.getElementById('editCropDate').value,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+                    break;
+                case 'expenses':
+                    updatedData = {
+                        category: document.getElementById('editExpenseCategory').value,
+                        amount: parseFloat(document.getElementById('editExpenseAmount').value) || 0,
+                        managedBy: document.getElementById('editExpenseManagedBy').value,
+                        description: document.getElementById('editExpenseDescription').value,
+                        date: document.getElementById('editExpenseDate').value,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+                    break;
+            }
+            
+            showLoading();
+            db.collection(collection).doc(id).update(updatedData)
+                .then(() => {
+                    alert('Record updated successfully!');
+                    bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+                    reloadCurrentTabData();
+                    hideLoading();
+                })
+                .catch(error => {
+                    console.error('Error updating document:', error);
+                    alert('Error updating record!');
+                    hideLoading();
+                });
+        }
+
+        function deleteRecord(collection, id) {
+            if (confirm('Are you sure you want to delete this record?')) {
+                showLoading();
+                db.collection(collection).doc(id).delete()
+                    .then(() => {
+                        alert('Record deleted successfully!');
+                        reloadCurrentTabData();
+                        hideLoading();
+                    })
+                    .catch(error => {
+                        console.error('Error deleting document:', error);
+                        alert('Error deleting record!');
+                        hideLoading();
+                    });
+            }
+        }
+
+        function reloadCurrentTabData() {
+            const activeTab = document.querySelector('.tab-content[style="display: block;"]').id;
+            switch(activeTab) {
+                case 'livestock':
+                    loadLivestockData();
+                    break;
+                case 'crops':
+                    loadCropData();
+                    break;
+                case 'water':
+                    loadWaterData();
+                    break;
+                case 'expenses':
+                    loadExpenseData();
+                    break;
+                case 'income':
+                    loadIncomeData();
+                    break;
+            }
+        }
+
+        // ========== EXCEL OPERATIONS ==========
+        function downloadExcelTemplate(type) {
+            let templateData = [];
+            let fileName = '';
+            
+            switch(type) {
+                case 'livestock':
+                    templateData = [['Date', 'Category', 'Animal Name/ID', 'Expense Type', 'Expense Amount', 'Income Amount', 'Description']];
+                    fileName = 'livestock_template.xlsx';
+                    break;
+                case 'crops':
+                    templateData = [['Date', 'Crop Name', 'Expense Type', 'Expense Amount', 'Income Amount', 'Area', 'Managed By']];
+                    fileName = 'crops_template.xlsx';
+                    break;
+            }
+            
+            const ws = XLSX.utils.aoa_to_sheet(templateData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Template');
+            XLSX.writeFile(wb, fileName);
+        }
+
+        function uploadExcel(type) {
+            const fileInput = type === 'livestock' ? 
+                document.getElementById('excelUpload') : 
+                document.getElementById('cropExcelUpload');
+            const file = fileInput.files[0];
+            
+            if (!file) return;
+            
+            showLoading();
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet);
+                
+                // Process and save data
+                processExcelData(type, jsonData);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function processExcelData(type, data) {
+            const batch = db.batch();
+            const collection = type === 'livestock' ? 'livestock' : 'crops';
+            
+            data.forEach(row => {
+                const docRef = db.collection(collection).doc();
+                let entry = {
+                    userId: currentUser.uid,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                };
+                
+                if (type === 'livestock') {
+                    entry = {
+                        ...entry,
+                        date: row.Date || new Date().toISOString().split('T')[0],
+                        category: row.Category || '',
+                        animalName: row['Animal Name/ID'] || '',
+                        expenseType: row['Expense Type'] || '',
+                        expenseAmount: parseFloat(row['Expense Amount']) || 0,
+                        incomeAmount: parseFloat(row['Income Amount']) || 0,
+                        description: row.Description || ''
+                    };
+                } else {
+                    entry = {
+                        ...entry,
+                        date: row.Date || new Date().toISOString().split('T')[0],
+                        cropName: row['Crop Name'] || '',
+                        expenseType: row['Expense Type'] || '',
+                        expenseAmount: parseFloat(row['Expense Amount']) || 0,
+                        incomeAmount: parseFloat(row['Income Amount']) || 0,
+                        area: parseFloat(row.Area) || 0,
+                        managedBy: row['Managed By'] || ''
+                    };
+                }
+                
+                batch.set(docRef, entry);
+            });
+            
+            batch.commit()
+                .then(() => {
+                    alert(`${data.length} records imported successfully!`);
+                    reloadCurrentTabData();
+                    hideLoading();
+                })
+                .catch(error => {
+                    console.error('Error importing data:', error);
+                    alert('Error importing data!');
+                    hideLoading();
+                });
+        }
+
+        function exportToExcel(type) {
+            let data = [];
+            let fileName = '';
+            
+            switch(type) {
+                case 'livestock':
+                    data = livestockData.map(item => [
+                        item.date,
+                        item.category,
+                        item.animalName,
+                        item.expenseType,
+                        item.expenseAmount,
+                        item.incomeAmount,
+                        item.description || ''
+                    ]);
+                    fileName = `livestock_data_${new Date().toISOString().split('T')[0]}.xlsx`;
+                    break;
+                case 'crops':
+                    data = cropData.map(item => [
+                        item.date,
+                        item.cropName,
+                        item.expenseType,
+                        item.expenseAmount,
+                        item.incomeAmount,
+                        item.area || 0,
+                        item.managedBy || ''
+                    ]);
+                    fileName = `crops_data_${new Date().toISOString().split('T')[0]}.xlsx`;
+                    break;
+            }
+            
+            // Add headers
+            const headers = type === 'livestock' ? 
+                ['Date', 'Category', 'Animal Name/ID', 'Expense Type', 'Expense Amount', 'Income Amount', 'Description'] :
+                ['Date', 'Crop Name', 'Expense Type', 'Expense Amount', 'Income Amount', 'Area', 'Managed By'];
+            
+            data.unshift(headers);
+            
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Data');
+            XLSX.writeFile(wb, fileName);
+        }
+
+        // ========== PDF GENERATION ==========
+        function generateLivestockPDF() {
+            showLoading();
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Add title
+            doc.setFontSize(16);
+            doc.text('Livestock Management Report', 105, 15, { align: 'center' });
+            
+            // Add date
+            doc.setFontSize(10);
+            doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, 22, { align: 'center' });
+            
+            // Prepare table data
+            const tableData = livestockData.map(item => [
+                new Date(item.date).toLocaleDateString(),
+                item.category,
+                item.animalName,
+                item.expenseType,
+                `₹${item.expenseAmount.toFixed(2)}`,
+                `₹${item.incomeAmount.toFixed(2)}`,
+                item.description || ''
+            ]);
+            
+            // Add table
+            doc.autoTable({
+                head: [['Date', 'Category', 'Animal', 'Expense Type', 'Expense', 'Income', 'Description']],
+                body: tableData,
+                startY: 30,
+                theme: 'grid',
+                styles: { fontSize: 8 },
+                headStyles: { fillColor: [46, 139, 87] }
+            });
+            
+            // Add summary
+            const totalExpense = livestockData.reduce((sum, item) => sum + item.expenseAmount, 0);
+            const totalIncome = livestockData.reduce((sum, item) => sum + item.incomeAmount, 0);
+            const finalY = doc.lastAutoTable.finalY + 10;
+            
+            doc.setFontSize(10);
+            doc.text(`Total Expense: ₹${totalExpense.toFixed(2)}`, 20, finalY);
+            doc.text(`Total Income: ₹${totalIncome.toFixed(2)}`, 20, finalY + 7);
+            doc.text(`Net Profit: ₹${(totalIncome - totalExpense).toFixed(2)}`, 20, finalY + 14);
+            
+            // Save PDF
+            doc.save(`livestock_report_${new Date().toISOString().split('T')[0]}.pdf`);
+            hideLoading();
+        }
+
+        function generateCropPDF() {
+            showLoading();
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Add title
+            doc.setFontSize(16);
+            doc.text('Crop Management Report', 105, 15, { align: 'center' });
+            
+            // Add date
+            doc.setFontSize(10);
+            doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, 22, { align: 'center' });
+            
+            // Prepare table data
+            const tableData = cropData.map(item => [
+                new Date(item.date).toLocaleDateString(),
+                item.cropName,
+                item.expenseType,
+                `₹${item.expenseAmount.toFixed(2)}`,
+                `₹${item.incomeAmount.toFixed(2)}`,
+                `${item.area || 0} acres`,
+                item.managedBy || ''
+            ]);
+            
+            // Add table
+            doc.autoTable({
+                head: [['Date', 'Crop', 'Expense Type', 'Expense', 'Income', 'Area', 'Managed By']],
+                body: tableData,
+                startY: 30,
+                theme: 'grid',
+                styles: { fontSize: 8 },
+                headStyles: { fillColor: [46, 139, 87] }
+            });
+            
+            // Add summary
+            const totalExpense = cropData.reduce((sum, item) => sum + item.expenseAmount, 0);
+            const totalIncome = cropData.reduce((sum, item) => sum + item.incomeAmount, 0);
+            const finalY = doc.lastAutoTable.finalY + 10;
+            
+            doc.setFontSize(10);
+            doc.text(`Total Expense: ₹${totalExpense.toFixed(2)}`, 20, finalY);
+            doc.text(`Total Income: ₹${totalIncome.toFixed(2)}`, 20, finalY + 7);
+            doc.text(`Net Profit: ₹${(totalIncome - totalExpense).toFixed(2)}`, 20, finalY + 14);
+            
+            // Save PDF
+            doc.save(`crop_report_${new Date().toISOString().split('T')[0]}.pdf`);
+            hideLoading();
+        }
+
+        function generateMonthlyReport() {
+            showLoading();
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Title
+            doc.setFontSize(18);
+            doc.text('Farm Monthly Report', 105, 20, { align: 'center' });
+            
+            // Date
+            doc.setFontSize(12);
+            const monthYear = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            doc.text(`Month: ${monthYear}`, 105, 30, { align: 'center' });
+            
+            let yPos = 40;
+            
+            // Load all data for the month
+            const startDate = new Date();
+            startDate.setDate(1);
+            startDate.setHours(0, 0, 0, 0);
+            
+            const endDate = new Date();
+            endDate.setMonth(endDate.getMonth() + 1);
+            endDate.setDate(0);
+            endDate.setHours(23, 59, 59, 999);
+            
+            Promise.all([
+                db.collection('livestock')
+                    .where('userId', '==', currentUser.uid)
+                    .where('date', '>=', startDate.toISOString().split('T')[0])
+                    .where('date', '<=', endDate.toISOString().split('T')[0])
+                    .get(),
+                db.collection('crops')
+                    .where('userId', '==', currentUser.uid)
+                    .where('date', '>=', startDate.toISOString().split('T')[0])
+                    .where('date', '<=', endDate.toISOString().split('T')[0])
+                    .get(),
+                db.collection('expenses')
+                    .where('userId', '==', currentUser.uid)
+                    .where('date', '>=', startDate.toISOString().split('T')[0])
+                    .where('date', '<=', endDate.toISOString().split('T')[0])
+                    .get()
+            ]).then(([livestockSnap, cropSnap, expenseSnap]) => {
+                // Calculate totals
+                let livestockIncome = 0;
+                let livestockExpense = 0;
+                let cropIncome = 0;
+                let cropExpense = 0;
+                let otherExpenses = 0;
+                
+                livestockSnap.forEach(doc => {
+                    const data = doc.data();
+                    livestockIncome += data.incomeAmount || 0;
+                    livestockExpense += data.expenseAmount || 0;
+                });
+                
+                cropSnap.forEach(doc => {
+                    const data = doc.data();
+                    cropIncome += data.incomeAmount || 0;
+                    cropExpense += data.expenseAmount || 0;
+                });
+                
+                expenseSnap.forEach(doc => {
+                    const data = doc.data();
+                    otherExpenses += data.amount || 0;
+                });
+                
+                const totalIncome = livestockIncome + cropIncome;
+                const totalExpense = livestockExpense + cropExpense + otherExpenses;
+                const netProfit = totalIncome - totalExpense;
+                
+                // Add summary section
+                doc.setFontSize(14);
+                doc.text('Financial Summary', 20, yPos);
+                yPos += 10;
+                
+                doc.setFontSize(10);
+                doc.text(`Livestock Income: ₹${livestockIncome.toFixed(2)}`, 20, yPos);
+                doc.text(`Livestock Expenses: ₹${livestockExpense.toFixed(2)}`, 20, yPos + 7);
+                doc.text(`Crop Income: ₹${cropIncome.toFixed(2)}`, 20, yPos + 14);
+                doc.text(`Crop Expenses: ₹${cropExpense.toFixed(2)}`, 20, yPos + 21);
+                doc.text(`Other Expenses: ₹${otherExpenses.toFixed(2)}`, 20, yPos + 28);
+                
+                yPos += 40;
+                
+                // Add totals
+                doc.setFontSize(12);
+                doc.setDrawColor(0);
+                doc.setLineWidth(0.5);
+                doc.line(20, yPos, 190, yPos);
+                yPos += 10;
+                
+                doc.text(`Total Income: ₹${totalIncome.toFixed(2)}`, 20, yPos);
+                doc.text(`Total Expenses: ₹${totalExpense.toFixed(2)}`, 20, yPos + 7);
+                doc.text(`Net Profit: ₹${netProfit.toFixed(2)}`, 20, yPos + 14);
+                
+                if (netProfit >= 0) {
+                    doc.setTextColor(0, 128, 0);
+                } else {
+                    doc.setTextColor(255, 0, 0);
+                }
+                
+                // Reset color
+                doc.setTextColor(0);
+                
+                // Save PDF
+                doc.save(`monthly_report_${new Date().toISOString().split('T')[0]}.pdf`);
+                hideLoading();
+            });
+        }
+
+        // ========== DASHBOARD FUNCTIONS ==========
+        function updateDashboardStats() {
+            // This function updates the dashboard with real-time data
+            showLoading();
+            
+            Promise.all([
+                db.collection('livestock').where('userId', '==', currentUser.uid).get(),
+                db.collection('crops').where('userId', '==', currentUser.uid).get(),
+                db.collection('expenses').where('userId', '==', currentUser.uid).get()
+            ]).then(([livestockSnap, cropSnap, expenseSnap]) => {
+                let totalLivestock = 0;
+                let totalCrops = 0;
+                let totalIncome = 0;
+                let totalExpenses = 0;
+                
+                // Calculate livestock stats
+                livestockSnap.forEach(doc => {
+                    const data = doc.data();
+                    totalLivestock++;
+                    totalIncome += data.incomeAmount || 0;
+                    totalExpenses += data.expenseAmount || 0;
+                });
+                
+                // Calculate crop stats
+                const uniqueCrops = new Set();
+                cropSnap.forEach(doc => {
+                    const data = doc.data();
+                    uniqueCrops.add(data.cropName);
+                    totalIncome += data.incomeAmount || 0;
+                    totalExpenses += data.expenseAmount || 0;
+                });
+                totalCrops = uniqueCrops.size;
+                
+                // Calculate expense stats
+                expenseSnap.forEach(doc => {
+                    const data = doc.data();
+                    totalExpenses += data.amount || 0;
+                });
+                
+                // Update UI
+                document.getElementById('totalLivestock').textContent = totalLivestock;
+                document.getElementById('totalCrops').textContent = totalCrops;
+                document.getElementById('totalIncome').textContent = `₹${totalIncome.toFixed(2)}`;
+                document.getElementById('totalExpenses').textContent = `₹${totalExpenses.toFixed(2)}`;
+                
+                // Update recent transactions
+                updateRecentTransactions();
+                hideLoading();
+            });
+        }
+
+        function updateRecentTransactions() {
+            const transactions = [];
+            
+            // Get recent livestock transactions
+            db.collection('livestock')
+                .where('userId', '==', currentUser.uid)
+                .orderBy('timestamp', 'desc')
+                .limit(5)
+                .get()
+                .then(snapshot => {
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        transactions.push({
+                            date: data.date,
+                            type: 'Livestock',
+                            description: `${data.category} - ${data.animalName}`,
+                            amount: data.incomeAmount - data.expenseAmount,
+                            isIncome: data.incomeAmount > data.expenseAmount
+                        });
+                    });
+                    
+                    // Display transactions
+                    const container = document.getElementById('recentTransactions');
+                    container.innerHTML = '';
+                    
+                    transactions.forEach(transaction => {
+                        const div = document.createElement('div');
+                        div.className = `d-flex justify-content-between align-items-center p-2 mb-2 ${transaction.isIncome ? 'bg-success bg-opacity-10' : 'bg-danger bg-opacity-10'}`;
+                        div.innerHTML = `
+                            <div>
+                                <small class="text-muted">${new Date(transaction.date).toLocaleDateString()}</small>
+                                <div>${transaction.type}: ${transaction.description}</div>
+                            </div>
+                            <div class="${transaction.isIncome ? 'text-success' : 'text-danger'}">
+                                ${transaction.isIncome ? '+' : '-'}₹${Math.abs(transaction.amount).toFixed(2)}
+                            </div>
+                        `;
+                        container.appendChild(div);
+                    });
+                });
+        }
+
+        // ========== UTILITY FUNCTIONS ==========
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                auth.signOut().then(() => {
+                    window.location.reload();
+                });
+            }
+        }
+
+        function loadAllData() {
+            loadLivestockData();
+            loadCropData();
+            loadWaterData();
+            loadExpenseData();
+            loadIncomeData();
+        }
+
+        // Filter functions
+        function filterLivestockRecords() {
+            const fromDate = document.getElementById('livestockFromDate').value;
+            const toDate = document.getElementById('livestockToDate').value;
+            
+            let filteredData = livestockData;
+            
+            if (fromDate) {
+                filteredData = filteredData.filter(item => item.date >= fromDate);
+            }
+            
+            if (toDate) {
+                filteredData = filteredData.filter(item => item.date <= toDate);
+            }
+            
+            // Update table
+            const tableBody = document.getElementById('livestockTable');
+            tableBody.innerHTML = '';
+            
+            filteredData.forEach(item => {
+                const row = `
+                    <tr>
+                        <td>${new Date(item.date).toLocaleDateString()}</td>
+                        <td>${item.category}</td>
+                        <td>${item.animalName}</td>
+                        <td>${item.expenseType}</td>
+                        <td class="text-danger">₹${item.expenseAmount.toFixed(2)}</td>
+                        <td class="text-success">₹${item.incomeAmount.toFixed(2)}</td>
+                        <td>
+                            <button class="btn btn-sm btn-warning me-1" onclick="editRecord('livestock', '${item.id}')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteRecord('livestock', '${item.id}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+                tableBody.innerHTML += row;
+            });
+        }
+
+        // Initialize date fields with current date
+        function initializeDates() {
+            const today = new Date().toISOString().split('T')[0];
+            const dateInputs = document.querySelectorAll('input[type="date"]');
+            dateInputs.forEach(input => {
+                if (!input.value) {
+                    input.value = today;
+                }
+            });
+            
+            // Set date range defaults
+            const firstDay = new Date();
+            firstDay.setDate(1);
+            document.getElementById('livestockFromDate').value = firstDay.toISOString().split('T')[0];
+            document.getElementById('cropFromDate').value = firstDay.toISOString().split('T')[0];
+            document.getElementById('reportFromDate').value = firstDay.toISOString().split('T')[0];
+            
+            document.getElementById('livestockToDate').value = today;
+            document.getElementById('cropToDate').value = today;
+            document.getElementById('reportToDate').value = today;
+        }
+
+        // Call initializeDates on load
+        setTimeout(initializeDates, 1000);
+
+        // Additional report functions
+        function generateFinancialAnalysis() {
+            showLoading();
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            doc.setFontSize(16);
+            doc.text('Financial Analysis Report', 105, 20, { align: 'center' });
+            doc.setFontSize(10);
+            doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, 28, { align: 'center' });
+            
+            // You can add more detailed analysis here
+            doc.text('Detailed financial analysis will be implemented based on your data.', 20, 40);
+            
+            doc.save(`financial_analysis_${new Date().toISOString().split('T')[0]}.pdf`);
+            hideLoading();
+        }
+
+        function generateManagedExpensesReport() {
+            showLoading();
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            doc.setFontSize(16);
+            doc.text('Managed Expenses Report', 105, 20, { align: 'center' });
+            
+            // Group expenses by manager
+            const managedExpenses = {};
+            expenseData.forEach(expense => {
+                if (!managedExpenses[expense.managedBy]) {
+                    managedExpenses[expense.managedBy] = 0;
+                }
+                managedExpenses[expense.managedBy] += expense.amount;
+            });
+            
+            // Create table data
+            const tableData = Object.keys(managedExpenses).map(manager => [
+                manager,
+                `₹${managedExpenses[manager].toFixed(2)}`
+            ]);
+            
+            doc.autoTable({
+                head: [['Managed By', 'Total Amount']],
+                body: tableData,
+                startY: 30,
+                theme: 'grid',
+                headStyles: { fillColor: [46, 139, 87] }
+            });
+            
+            doc.save(`managed_expenses_${new Date().toISOString().split('T')[0]}.pdf`);
+            hideLoading();
+        }
+
+        // Report form handler
+        document.getElementById('reportForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            generateCustomReport();
+        });
+
+        function generateCustomReport() {
+            const reportType = document.getElementById('reportType').value;
+            const fromDate = document.getElementById('reportFromDate').value;
+            const toDate = document.getElementById('reportToDate').value;
+            
+            alert(`Generating ${reportType} report from ${fromDate} to ${toDate}`);
+            // Implement custom report generation based on type and date range
+        }
+
+        // Quick report functions
+        function generateTodayReport() {
+            const today = new Date().toISOString().split('T')[0];
+            alert(`Generating today's report for ${today}`);
+        }
+
+        function generateWeeklyReport() {
+            alert('Generating weekly report');
+        }
+
+        function generateYearlyReport() {
+            alert('Generating yearly report');
+        }
+
+        function showAllLedgers() {
+            alert('Showing all farmer ledgers');
+            // Implement showing all ledgers in a modal
+        }
+
+        function exportWaterReport() {
+            alert('Exporting water supply report to Excel');
+        }
+
+        function loadReportData() {
+            // Load data needed for reports
+            console.log('Loading report data...');
+        }
+
+        // Auto-save functionality
+        function autoSaveForm(formId, collection) {
+            const form = document.getElementById(formId);
+            form.addEventListener('input', function() {
+                const formData = new FormData(form);
+                const data = Object.fromEntries(formData);
+                localStorage.setItem(`${collection}_draft`, JSON.stringify(data));
+            });
+            
+            // Load draft on page load
+            const draft = localStorage.getItem(`${collection}_draft`);
+            if (draft) {
+                const data = JSON.parse(draft);
+                Object.keys(data).forEach(key => {
+                    const element = form.querySelector(`[name="${key}"]`);
+                    if (element) {
+                        element.value = data[key];
+                    }
+                });
+            }
+            
+            // Clear draft on successful submit
+            form.addEventListener('submit', function() {
+                localStorage.removeItem(`${collection}_draft`);
+            });
+        }
+
+        // Initialize auto-save for forms
+        autoSaveForm('livestockForm', 'livestock');
+        autoSaveForm('cropForm', 'crops');
+        autoSaveForm('waterForm', 'water');
+        autoSaveForm('expenseForm', 'expenses');
+    </script>
+</body>
+</html>
